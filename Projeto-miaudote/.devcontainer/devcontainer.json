@@ -1,0 +1,10 @@
+{
+  "name": "Miaudote",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "postCreateCommand": "npm install && cd backend && npm install",
+  "forwardPorts": [3000, 3001],
+  "portsAttributes": {
+    "3000": { "label": "Frontend (React)", "onAutoForward": "openBrowser" },
+    "3001": { "label": "Backend (API)", "visibility": "public" }
+  }
+}

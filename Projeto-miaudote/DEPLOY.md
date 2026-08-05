@@ -4,7 +4,7 @@ Este guia cobre a publicação da plataforma para uso real por pessoas e institu
 
 ## 1. Variáveis de ambiente
 
-Copie `.env.example` (frontend) e `backend/.env.example` (backend) e preencha os valores.
+Copie `.env.example` (na raiz do projeto) e `backend/.env.example` (backend) e preencha os valores.
 **Nunca** comite o arquivo `.env`. Se ele já foi enviado ao GitHub em algum commit,
 troque imediatamente a senha do MongoDB Atlas, o `JWT_SECRET` e a senha de app do e-mail.
 

@@ -109,7 +109,6 @@ npm start
 
 Instalação do Frontend
 
-cd frontend
 npm install
 npm start
 
@@ -126,18 +125,19 @@ REACT_APP_API_URL=http://localhost:3001/api
 📁 Estrutura do Projeto
 
 miaudote/
-├── frontend/                 # Aplicação React
-│   ├── src/
-│   │   ├── components/       # Componentes reutilizáveis
-│   │   ├── pages/           # Páginas da aplicação
-│   │   ├── services/        # Serviços API
-│   │   └── utils/           # Utilitários
-│   └── public/
-│
-├── backend/                  # API Node.js
-│   ├── api/                 # Rotas da API
-│   ├── models/              # Modelos MongoDB
-│   ├── middleware/          # Middlewares
+├── src/                     # Aplicação React
+│   ├── components/          # Componentes reutilizáveis
+│   ├── pages/               # Páginas da aplicação
+│   ├── services/            # Serviços API
+│   ├── styles.css
+│   └── ...                  # Código React
+├── public/                  # Arquivos públicos do CRA
+│   └── index.html
+├── package.json             # Frontend e build React
+└── backend/                 # API Node.js
+    ├── api/                 # Rotas da API
+    ├── models/              # Modelos MongoDB
+    ├── middleware/          # Middlewares
 │   ├── services/            # Serviços (geocoding, etc.)
 │   └── uploads/             # Armazenamento de imagens
 │
