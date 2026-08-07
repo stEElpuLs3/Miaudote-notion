@@ -76,4 +76,8 @@ export class UserClass {
     const user = this.GetUser();
     return !!(user && user.logado);
   }
+  static GetUserId() {
+    const user = this.GetUser();
+    return user?._id || user?.id || null;
+  }
 }

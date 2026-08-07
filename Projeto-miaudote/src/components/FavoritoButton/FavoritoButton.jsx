@@ -1,34 +1,41 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { IconButton, Tooltip } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import axios from 'axios';
-import { API_URL } from '../../config';
+import api from '../../services/api';
 
 function FavoritoButton({ petId, size = 'medium' }) {
   const [isFavorito, setIsFavorito] = useState(false);
   const [loading, setLoading] = useState(false);
-  const user = JSON.parse(localStorage.getItem('user'));
+
+  // Lê o usuário uma única vez e guarda só o ID (string).
+  // Aceita _id (formato salvo pelo UserClass) e id (resposta da API).
+  const userId = useMemo(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('user'));
+      return stored?._id || stored?.id || null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const verificarFavorito = useCallback(async () => {
-    if (!user) return;
+    if (!userId || !petId) return;
     try {
-      const response = await axios.get(`${API_URL}/api/favoritos/${user.id}`);
-      const isFavorited = response.data.some(pet => pet._id === petId);
-      setIsFavorito(isFavorited);
+      const response = await api.get(`/api/favoritos/${userId}`);
+      const lista = Array.isArray(response.data) ? response.data : [];
+      setIsFavorito(lista.some((pet) => (pet?._id || pet) === petId));
     } catch (error) {
       console.error('Erro ao verificar favorito:', error);
     }
-  }, [user, petId]);
+  }, [userId, petId]);
 
   useEffect(() => {
-    if (user) {
-      verificarFavorito();
-    }
-  }, [verificarFavorito, user]);
+    verificarFavorito();
+  }, [verificarFavorito]);
 
   const toggleFavorito = async () => {
-    if (!user) {
+    if (!userId) {
       alert('Faça login para favoritar pets!');
       return;
     }
@@ -36,10 +43,10 @@ function FavoritoButton({ petId, size = 'medium' }) {
     setLoading(true);
     try {
       if (isFavorito) {
-        await axios.delete(`${API_URL}/api/favoritos/${user.id}/favoritar/${petId}`);
+        await api.delete(`/api/favoritos/${userId}/favoritar/${petId}`);
         setIsFavorito(false);
       } else {
-        await axios.post(`${API_URL}/api/favoritos/${user.id}/favoritar/${petId}`);
+        await api.post(`/api/favoritos/${userId}/favoritar/${petId}`);
         setIsFavorito(true);
       }
     } catch (error) {
@@ -50,14 +57,14 @@ function FavoritoButton({ petId, size = 'medium' }) {
     }
   };
 
-  if (!user) {
+  if (!userId) {
     return null;
   }
 
   return (
     <Tooltip title={isFavorito ? "Remover dos favoritos" : "Adicionar aos favoritos"}>
-      <IconButton 
-        onClick={toggleFavorito} 
+      <IconButton
+        onClick={toggleFavorito}
         disabled={loading}
         color={isFavorito ? "error" : "default"}
         size={size}

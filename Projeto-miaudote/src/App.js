@@ -13,22 +13,17 @@ import LoginModal from './components/LoginModal/LoginModal';
 import Mensagens from './pages/Mensagens'; // Já está importado
 import './styles.css';
 import './App.css';
+import { UserClass } from './UserClass';
 
 function App() {
   const LogOut = () => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) {
-      user.logado = false;
-      localStorage.setItem("user", JSON.stringify(user));
-    }
+    UserClass.Logout();          // remove o item inteiro
     window.location.href = "/";
     return null;
   };
 
-  const user = JSON.parse(localStorage.getItem("user"));
-  const [isOpenModal, setOpenModal] = useState(
-    user === null || user === undefined ? true : !user.logado ?? true
-  );
+  const user = UserClass.GetUser();
+  const [isOpenModal, setOpenModal] = useState(!UserClass.IsLoggedIn());
 
   return (
     <Router>
