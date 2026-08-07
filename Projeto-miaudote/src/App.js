@@ -10,19 +10,18 @@ import SuccessStories from './pages/SuccessStories';
 import Cadastro from './pages/Cadastro/Cadastro';
 import Favoritos from './pages/Favoritos';
 import LoginModal from './components/LoginModal/LoginModal';
-import Mensagens from './pages/Mensagens'; // Já está importado
+import Mensagens from './pages/Mensagens';
+import { UserClass } from './UserClass';
 import './styles.css';
 import './App.css';
-import { UserClass } from './UserClass';
 
 function App() {
   const LogOut = () => {
-    UserClass.Logout();          // remove o item inteiro
+    UserClass.Logout();
     window.location.href = "/";
     return null;
   };
 
-  const user = UserClass.GetUser();
   const [isOpenModal, setOpenModal] = useState(!UserClass.IsLoggedIn());
 
   return (
