@@ -1,38 +1,47 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Container, Typography, Box, Grid, Paper, Button } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import PetsIcon from '@mui/icons-material/Pets';
 import { useNavigate } from 'react-router-dom';
 import PetCard from '../components/PetCard/PetCard';
-import axios from 'axios';
-import { API_URL } from '../config';
+import api from '../services/api';
 
 function Favoritos() {
   const [favoritos, setFavoritos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = JSON.parse(localStorage.getItem('user'));
   const navigate = useNavigate();
 
-  const fetchFavoritos = useCallback(async () => {
+  // Lê o usuário uma única vez e guarda só o ID (string).
+  const userId = useMemo(() => {
     try {
-      const response = await axios.get(`${API_URL}/api/favoritos/${user.id}`);
-      setFavoritos(response.data);
+      const stored = JSON.parse(localStorage.getItem('user'));
+      return stored?._id || stored?.id || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const fetchFavoritos = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const response = await api.get(`/api/favoritos/${userId}`);
+      setFavoritos(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Erro ao buscar favoritos:', error);
+      setFavoritos([]);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
-    if (user) {
-      fetchFavoritos();
-    } else {
-      setLoading(false);
-    }
-  }, [user, fetchFavoritos]);
+    fetchFavoritos();
+  }, [fetchFavoritos]);
 
-  if (!user) {
+  if (!userId) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4, textAlign: 'center' }}>
         <FavoriteIcon sx={{ fontSize: 80, color: 'grey.400', mb: 2 }} />
@@ -42,8 +51,8 @@ function Favoritos() {
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           Faça login para ver seus pets favoritos
         </Typography>
-        <Button 
-          variant="contained" 
+        <Button
+          variant="contained"
           onClick={() => navigate('/')}
         >
           Fazer Login
@@ -81,8 +90,8 @@ function Favoritos() {
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
             Explore os pets disponíveis e adicione seus favoritos clicando no ícone ❤️
           </Typography>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             startIcon={<PetsIcon />}
             onClick={() => navigate('/search-pets')}
             size="large"
