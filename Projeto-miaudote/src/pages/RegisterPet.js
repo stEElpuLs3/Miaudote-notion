@@ -99,7 +99,7 @@ function RegisterPet() {
         formData.append('raca', petData.raca);
         formData.append('idade', petData.idade);
         formData.append('descricao', petData.descricao);
-        formData.append('user', user.id);
+        formData.append('user', user._id);
 
         // Adiciona campos de endereço individualmente
         formData.append('cep', petData.endereco.cep);
@@ -132,7 +132,7 @@ function RegisterPet() {
           raca: petData.raca,
           idade: petData.idade,
           descricao: petData.descricao,
-          user: user.id,
+          user: user._id,
           cep: petData.endereco.cep,
           rua: petData.endereco.rua,
           numero: petData.endereco.numero,

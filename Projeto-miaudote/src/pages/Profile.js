@@ -64,7 +64,7 @@ function Profile() {
   const handleDeletePet = async (petId) => {
     try {
       await axios.delete(`${API_URL}/api/pets/${petId}`);
-      fetchUserPets(user.id);
+      fetchUserPets(user._id);
       alert('Pet excluído com sucesso!');
     } catch (error) {
       console.error('Erro ao excluir pet:', error);

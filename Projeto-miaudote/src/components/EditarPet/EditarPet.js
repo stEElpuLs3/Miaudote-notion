@@ -102,7 +102,7 @@ function EditarPet({ open, onClose, pet, onPetUpdate }) {
       const user = JSON.parse(localStorage.getItem('user'));
 
       // Verifica se o usuário é o dono do pet
-      if (pet.user._id !== user.id && pet.user !== user.id) {
+      if (pet.user._id !== user._id && pet.user !== user._id) {
         alert('Apenas o dono do pet pode editá-lo');
         return;
       }

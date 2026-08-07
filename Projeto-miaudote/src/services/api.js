@@ -8,4 +8,8 @@ const api = axios.create({
 
 attachAuthInterceptors(api);
 
+// Aplica o mesmo interceptor no axios global, para os componentes
+// que ainda importam 'axios' diretamente enviarem o token também.
+attachAuthInterceptors(axios);
+
 export default api;

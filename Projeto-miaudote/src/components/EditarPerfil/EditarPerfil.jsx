@@ -96,7 +96,7 @@ function EditarPerfil({ open, onClose, user, onUserUpdate }) {
         formData.append('avatar', avatarFile);
       }
 
-      const response = await axios.put(`${API_URL}/api/usuarios/${user.id}`, formData, {
+      const response = await axios.put(`${API_URL}/api/usuarios/${user._id}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }

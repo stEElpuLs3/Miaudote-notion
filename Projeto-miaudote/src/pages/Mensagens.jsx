@@ -23,19 +23,19 @@ function Mensagens() {
   // Mova fetchMensagens para useCallback
   const fetchMensagens = useCallback(async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/mensagens/usuario/${user.id}`);
+      const response = await axios.get(`${API_URL}/api/mensagens/usuario/${user._id}`);
       setMensagens(response.data);
     } catch (error) {
       console.error('Erro ao buscar mensagens:', error);
     }
-  }, [user.id]); // Adicione user.id como dependência
+  }, [user._id]); // Adicione user._id como dependência
 
   useEffect(() => {
     fetchMensagens();
   }, [fetchMensagens]); // Adicione fetchMensagens como dependência
 
   const mensagensRecebidas = mensagens.filter(msg => 
-    msg.destinatario._id === user.id
+    msg.destinatario._id === user._id
   ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const handleResponder = async () => {
@@ -44,7 +44,7 @@ function Mensagens() {
     setLoading(true);
     try {
       await axios.post(`${API_URL}/api/mensagens`, {
-        remetente: user.id,
+        remetente: user._id,
         destinatario: mensagemSelecionada.remetente._id,
         pet: mensagemSelecionada.pet?._id,
         mensagem: resposta,

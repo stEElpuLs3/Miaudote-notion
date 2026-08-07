@@ -27,13 +27,13 @@ function Chat() {
 
   const fetchMensagens = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/mensagens/usuario/${user.id}`);
+      const response = await axios.get(`${API_URL}/api/mensagens/usuario/${user._id}`);
       setMensagens(response.data);
       
       // Extrair usuários únicos das conversas
       const usuariosUnicos = [];
       response.data.forEach(msg => {
-        const outroUsuario = msg.remetente._id === user.id ? msg.destinatario : msg.remetente;
+        const outroUsuario = msg.remetente._id === user._id ? msg.destinatario : msg.remetente;
         if (!usuariosUnicos.find(u => u._id === outroUsuario._id)) {
           usuariosUnicos.push(outroUsuario);
         }
@@ -49,7 +49,7 @@ function Chat() {
 
     try {
       const response = await axios.post(`${API_URL}/api/mensagens`, {
-        remetente: user.id,
+        remetente: user._id,
         destinatario: usuarioSelecionado._id,
         pet: petSelecionado?._id,
         mensagem: novaMensagem,
@@ -68,8 +68,8 @@ function Chat() {
   };
 
   const mensagensConversa = mensagens.filter(msg =>
-    (msg.remetente._id === user.id && msg.destinatario._id === usuarioSelecionado?._id) ||
-    (msg.remetente._id === usuarioSelecionado?._id && msg.destinatario._id === user.id)
+    (msg.remetente._id === user._id && msg.destinatario._id === usuarioSelecionado?._id) ||
+    (msg.remetente._id === usuarioSelecionado?._id && msg.destinatario._id === user._id)
   ).reverse();
 
   return (
@@ -126,7 +126,7 @@ function Chat() {
                     key={msg._id}
                     sx={{
                       display: 'flex',
-                      justifyContent: msg.remetente._id === user.id ? 'flex-end' : 'flex-start',
+                      justifyContent: msg.remetente._id === user._id ? 'flex-end' : 'flex-start',
                       mb: 2
                     }}
                   >
@@ -134,8 +134,8 @@ function Chat() {
                       sx={{
                         p: 2,
                         maxWidth: '70%',
-                        bgcolor: msg.remetente._id === user.id ? 'primary.main' : 'grey.100',
-                        color: msg.remetente._id === user.id ? 'white' : 'text.primary'
+                        bgcolor: msg.remetente._id === user._id ? 'primary.main' : 'grey.100',
+                        color: msg.remetente._id === user._id ? 'white' : 'text.primary'
                       }}
                     >
                       <Typography variant="body1">{msg.mensagem}</Typography>
