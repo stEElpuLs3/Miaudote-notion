@@ -28,7 +28,7 @@ function Favoritos() {
     }
     try {
       const response = await api.get(`/api/favoritos/${userId}`);
-      setFavoritos(Array.isArray(response.data) ? response.data : []);
+      setFavoritos(Array.isArray(response.data) ? response.data.filter(Boolean) : []);
     } catch (error) {
       console.error('Erro ao buscar favoritos:', error);
       setFavoritos([]);

@@ -5,8 +5,7 @@ import {
   Grid, MenuItem
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import axios from 'axios';
-import { API_URL } from '../../config';
+import api from '../../services/api';
 
 function EditarPerfil({ open, onClose, user, onUserUpdate }) {
   const [userData, setUserData] = useState({
@@ -23,12 +22,13 @@ function EditarPerfil({ open, onClose, user, onUserUpdate }) {
   // Reset do estado quando o modal abre/fecha
   useEffect(() => {
     if (open && user) {
+      // O localStorage pode ter as chaves em português ou em inglês.
       setUserData({
-        nome: user.nome || '',
-        telefone: user.telefone || '',
-        redeSocial: user.redeSocial || { plataforma: '', usuario: '' },
-        endereco: user.endereco || { cep: '', rua: '', numero: '', cidade: '', estado: '' },
-        sobre: user.sobre || ''
+        nome: user.nome || user.name || '',
+        telefone: user.telefone || user.phone || '',
+        redeSocial: user.redeSocial || user.socialMedia || { plataforma: '', usuario: '' },
+        endereco: user.endereco || user.address || { cep: '', rua: '', numero: '', cidade: '', estado: '' },
+        sobre: user.sobre || user.about || ''
       });
       setAvatarPreview(user.avatar || '');
       setAvatarFile(null);
@@ -96,13 +96,20 @@ function EditarPerfil({ open, onClose, user, onUserUpdate }) {
         formData.append('avatar', avatarFile);
       }
 
-      const response = await axios.put(`${API_URL}/api/usuarios/${user._id}`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const userId = user?._id || user?.id;
 
-      const updatedUser = { ...user, ...response.data.user };
+      // Sem Content-Type manual: o navegador precisa montar o boundary do FormData.
+      const response = await api.put(`/api/usuarios/${userId}`, formData);
+
+      // O backend pode devolver { user: {...} } ou o objeto direto.
+      const dadosAtualizados = response.data?.user || response.data || {};
+
+      const updatedUser = {
+        ...user,
+        ...dadosAtualizados,
+        _id: dadosAtualizados._id || dadosAtualizados.id || userId
+      };
+
       localStorage.setItem('user', JSON.stringify(updatedUser));
       onUserUpdate(updatedUser);
 
@@ -110,7 +117,12 @@ function EditarPerfil({ open, onClose, user, onUserUpdate }) {
       alert('Perfil atualizado com sucesso!');
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
-      alert('Erro ao atualizar perfil');
+
+      if (error.response?.status === 401) {
+        alert('Sua sessão expirou. Faça login novamente.');
+      } else {
+        alert(error.response?.data?.message || 'Erro ao atualizar perfil');
+      }
     } finally {
       setLoading(false);
     }
@@ -120,7 +132,7 @@ function EditarPerfil({ open, onClose, user, onUserUpdate }) {
   if (!open) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth> 
       <DialogTitle>Editar Perfil</DialogTitle>
       <form onSubmit={handleSubmit}>
         <DialogContent>

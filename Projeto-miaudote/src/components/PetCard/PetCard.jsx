@@ -8,10 +8,9 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
-import axios from 'axios';
 import petPaws from '../../images/PetPaws.jpg';
 import FavoritoButton from '../FavoritoButton/FavoritoButton'; // IMPORT DO FAVORITO
-import { API_URL } from '../../config';
+import api from '../../services/api';
 
 export default function PetCard({ pet }) {
   const [openModal, setOpenModal] = useState(false);
@@ -54,11 +53,17 @@ export default function PetCard({ pet }) {
   } = pet;
 
   const mainImage = fotos.length > 0 ? fotos[0] : petPaws;
-  const currentUser = JSON.parse(localStorage.getItem('user'));
+  let currentUser = null;
+  try {
+    currentUser = JSON.parse(localStorage.getItem('user'));
+  } catch {
+    currentUser = null;
+  }
+  const currentUserId = currentUser?._id || currentUser?.id || null;
 
   const handleDeletePet = async () => {
     try {
-      await axios.delete(`${API_URL}/api/pets/${_id}`);
+      await api.delete(`/api/pets/${_id}`);
 
       // Fechar modais
       setOpenDeleteModal(false);
@@ -69,7 +74,7 @@ export default function PetCard({ pet }) {
 
     } catch (error) {
       console.error('Erro ao deletar pet:', error);
-      alert('Erro ao excluir pet');
+      alert(error.response?.data?.message || 'Erro ao excluir pet');
     }
   };
 
@@ -78,13 +83,17 @@ export default function PetCard({ pet }) {
       alert('Por favor, digite uma mensagem');
       return;
     }
+    if (!currentUserId) {
+      alert('Você precisa estar logado para enviar uma mensagem');
+      return;
+    }
 
     setEnviando(true);
     try {
       // 1. Primeiro enviar a mensagem
-      await axios.post(`${API_URL}/api/mensagens`, {
-        remetente: currentUser.id,
-        destinatario: user, // user já é o ID
+      await api.post(`/api/mensagens`, {
+        remetente: currentUserId,
+        destinatario: user?._id || user,
         pet: _id,
         mensagem: mensagem,
         tipo: 'interesse'
@@ -94,9 +103,9 @@ export default function PetCard({ pet }) {
 
       // 2. Tentar enviar email (não crítico)
       try {
-        const emailResponse = await axios.post(`${API_URL}/api/email/interesse`, {
+        const emailResponse = await api.post('/api/email/interesse', {
           petId: _id,
-          interessadoId: currentUser.id
+          interessadoId: currentUserId
         });
         console.log('✅ Email enviado:', emailResponse.data);
       } catch (emailError) {
@@ -124,11 +133,21 @@ export default function PetCard({ pet }) {
   return (
     <>
       {/* CARD PRINCIPAL */}
-      <Card sx={{ maxWidth: 345, position: 'relative' }}>
+      <Card sx={{
+        width: '100%',
+        maxWidth: 345,
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%'
+      }}>
         <CardMedia
-          sx={{ height: 140 }}
+          component="img"
+          height="200"
           image={mainImage}
-          title={nome}
+          alt={nome}
+          onError={(e) => { e.target.src = petPaws; }}
+          sx={{ objectFit: 'cover' }}
         />
         
         {/* BOTÃO FAVORITO NO CARD - POSIÇÃO 1 */}
@@ -136,12 +155,12 @@ export default function PetCard({ pet }) {
           <FavoritoButton petId={_id} size="small" />
         </Box>
 
-        <CardContent>
+        <CardContent sx={{ flexGrow: 1 }}>
           <Typography gutterBottom variant="h5" component="div">
             {nome}
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {descricao?.substring(0, 100)}...
+            {descricao?.length > 100 ? `${descricao.substring(0, 100)}...` : descricao}
           </Typography>
           <Box sx={{ mt: 1 }}>
             <Chip label={especie} size="small" variant="outlined" />
@@ -307,7 +326,7 @@ export default function PetCard({ pet }) {
                 </Button>
 
                 {/* Botão deletar - apenas para o dono */}
-                {currentUser && currentUser.id === user && (
+                {currentUserId && currentUserId === (user?._id || user) && (
                   <Button
                     variant="outlined"
                     color="error"
