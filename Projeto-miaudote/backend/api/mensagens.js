@@ -32,7 +32,8 @@ router.post('/', auth, async (req, res) => {
       const remetenteData = await User.findById(remetente);
       const petData = pet ? await Pet.findById(pet) : null;
 
-      await emailService.enviarEmailNovaMensagem(destinatarioData, remetenteData, petData);
+      emailService.enviarEmailNovaMensagem(destinatarioData, remetenteData, petData)
+        .catch((e) => console.error('Erro ao enviar email:', e.message));
     } catch (emailError) {
       console.error('Erro ao enviar email:', emailError.message);
       // Nao falha a requisicao se o email falhar

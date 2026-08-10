@@ -60,17 +60,18 @@ function Mensagens() {
       });
 
       // Marcar como lida é secundário: não pode derrubar o envio
-      try {
-        await api.put(`/api/mensagens/${mensagemSelecionada._id}/lida`);
-      } catch (erroLida) {
-        console.log('Não foi possível marcar como lida:', erroLida.message);
-      }
+      const idOriginal = mensagemSelecionada._id;
 
+      // Fecha na hora: a resposta já está salva no banco
       setResposta('');
       setOpenResponder(false);
       setMensagemSelecionada(null);
-      fetchMensagens();
       alert('Resposta enviada com sucesso!');
+
+      // Marcar como lida é secundário — dispara sem travar nada
+      api.put(`/api/mensagens/${idOriginal}/lida`)
+        .catch((erroLida) => console.log('Não foi possível marcar como lida:', erroLida.message))
+        .finally(() => fetchMensagens());
     } catch (error) {
       console.error('Erro ao enviar resposta:', error);
       alert(error.response?.data?.message || 'Erro ao enviar resposta');
