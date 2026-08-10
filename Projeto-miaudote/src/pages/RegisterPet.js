@@ -6,8 +6,7 @@ import {
 import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
-import axios from 'axios';
-import { API_URL } from '../config';
+import api from '../services/api';
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -87,7 +86,19 @@ function RegisterPet() {
     e.preventDefault();
 
     try {
-      const user = JSON.parse(localStorage.getItem('user'));
+      let user = null;
+      try {
+        user = JSON.parse(localStorage.getItem('user'));
+      } catch {
+        user = null;
+      }
+
+      const userId = user?._id || user?.id || null;
+
+      if (!userId) {
+        alert('Sua sessão expirou. Faça login novamente para cadastrar um pet.');
+        return;
+      }
 
       // Tenta enviar com imagens primeiro
       try {
@@ -99,7 +110,7 @@ function RegisterPet() {
         formData.append('raca', petData.raca);
         formData.append('idade', petData.idade);
         formData.append('descricao', petData.descricao);
-        formData.append('user', user._id);
+        formData.append('user', userId);
 
         // Adiciona campos de endereço individualmente
         formData.append('cep', petData.endereco.cep);
@@ -113,11 +124,7 @@ function RegisterPet() {
           formData.append('images', image);
         });
 
-        const response = await axios.post(`${API_URL}/api/pets`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        });
+        const response = await api.post('/api/pets', formData);
 
         console.log('Pet cadastrado com sucesso:', response.data);
         setOpen(true);
@@ -126,13 +133,13 @@ function RegisterPet() {
         console.log('Upload de imagens falhou, cadastrando sem imagens:', uploadError);
 
         // Fallback: cadastra sem imagens como JSON
-        const response = await axios.post(`${API_URL}/api/pets`, {
+        const response = await api.post('/api/pets', {
           nome: petData.nome,
           especie: petData.especie,
           raca: petData.raca,
           idade: petData.idade,
           descricao: petData.descricao,
-          user: user._id,
+          user: userId,
           cep: petData.endereco.cep,
           rua: petData.endereco.rua,
           numero: petData.endereco.numero,
