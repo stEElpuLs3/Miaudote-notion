@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Adicione useCallback
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Container, Typography, Box, Card, CardContent,
-  Avatar, Button, Chip, IconButton, Dialog, DialogTitle,
+  Avatar, Button, Chip, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, Grid
 } from '@mui/material';
 import ReplyIcon from '@mui/icons-material/Reply';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EmailIcon from '@mui/icons-material/Email';
 import PetsIcon from '@mui/icons-material/Pets';
-import axios from 'axios';
-import { API_URL } from '../config';
+import api from '../services/api';
 
 function Mensagens() {
   const [mensagens, setMensagens] = useState([]);
@@ -18,78 +17,104 @@ function Mensagens() {
   const [resposta, setResposta] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem('user'));
-
-  // Mova fetchMensagens para useCallback
-  const fetchMensagens = useCallback(async () => {
+  // Lê o usuário uma única vez e não quebra se o localStorage estiver vazio
+  const userId = useMemo(() => {
     try {
-      const response = await axios.get(`${API_URL}/api/mensagens/usuario/${user._id}`);
-      setMensagens(response.data);
+      const stored = JSON.parse(localStorage.getItem('user'));
+      return stored?._id || stored?.id || null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const fetchMensagens = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const response = await api.get(`/api/mensagens/usuario/${userId}`);
+      setMensagens(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Erro ao buscar mensagens:', error);
     }
-  }, [user._id]); // Adicione user._id como dependência
+  }, [userId]);
 
   useEffect(() => {
     fetchMensagens();
-  }, [fetchMensagens]); // Adicione fetchMensagens como dependência
+  }, [fetchMensagens]);
 
-  const mensagensRecebidas = mensagens.filter(msg => 
-    msg.destinatario._id === user._id
-  ).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const mensagensRecebidas = mensagens
+    .filter((msg) => msg?.destinatario?._id === userId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const handleResponder = async () => {
-    if (!resposta.trim()) return;
+    if (!resposta.trim() || !mensagemSelecionada) return;
 
     setLoading(true);
     try {
-      await axios.post(`${API_URL}/api/mensagens`, {
-        remetente: user._id,
-        destinatario: mensagemSelecionada.remetente._id,
+      await api.post('/api/mensagens', {
+        remetente: userId,
+        destinatario: mensagemSelecionada.remetente?._id,
         pet: mensagemSelecionada.pet?._id,
         mensagem: resposta,
         tipo: 'resposta'
       });
 
-      // Marcar mensagem original como lida
-      await axios.put(`${API_URL}/api/mensagens/${mensagemSelecionada._id}/lida`);
+      // Marcar como lida é secundário: não pode derrubar o envio
+      try {
+        await api.put(`/api/mensagens/${mensagemSelecionada._id}/lida`);
+      } catch (erroLida) {
+        console.log('Não foi possível marcar como lida:', erroLida.message);
+      }
 
       setResposta('');
       setOpenResponder(false);
       setMensagemSelecionada(null);
-      fetchMensagens(); // Recarregar mensagens
+      fetchMensagens();
       alert('Resposta enviada com sucesso!');
     } catch (error) {
       console.error('Erro ao enviar resposta:', error);
-      alert('Erro ao enviar resposta');
+      alert(error.response?.data?.message || 'Erro ao enviar resposta');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeletar = async (mensagemId) => {
-    if (window.confirm('Tem certeza que deseja excluir esta mensagem?')) {
-      try {
-        await axios.delete(`${API_URL}/api/mensagens/${mensagemId}`);
-        fetchMensagens(); // Recarregar mensagens
-        alert('Mensagem excluída com sucesso!');
-      } catch (error) {
-        console.error('Erro ao excluir mensagem:', error);
-        alert('Erro ao excluir mensagem');
-      }
+    if (!window.confirm('Tem certeza que deseja excluir esta mensagem?')) return;
+
+    try {
+      await api.delete(`/api/mensagens/${mensagemId}`);
+      // Remove da tela na hora, sem recarregar tudo do servidor
+      setMensagens((prev) => prev.filter((m) => m._id !== mensagemId));
+    } catch (error) {
+      console.error('Erro ao excluir mensagem:', error);
+      alert(error.response?.data?.message || 'Erro ao excluir mensagem');
     }
   };
 
   const getIconeRedeSocial = (plataforma) => {
     const icones = {
       instagram: '📷',
-      facebook: '👥', 
+      facebook: '👥',
       twitter: '🐦',
       tiktok: '🎵',
       outro: '🔗'
     };
     return icones[plataforma] || '🔗';
   };
+
+  if (!userId) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ textAlign: 'center', mt: 8 }}>
+          <EmailIcon sx={{ fontSize: 80, color: 'grey.300', mb: 2 }} />
+          <Typography variant="h6" color="text.secondary">
+            Faça login para ver suas mensagens
+          </Typography>
+        </Box>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -110,9 +135,9 @@ function Mensagens() {
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {mensagensRecebidas.map((mensagem) => (
-            <Card 
-              key={mensagem._id} 
-              sx={{ 
+            <Card
+              key={mensagem._id}
+              sx={{
                 borderLeft: mensagem.lida ? '4px solid #e0e0e0' : '4px solid #1976d2',
                 backgroundColor: mensagem.lida ? 'background.paper' : 'action.hover'
               }}
@@ -120,13 +145,13 @@ function Mensagens() {
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Avatar src={mensagem.remetente.avatar}>
-                      {mensagem.remetente.nome?.charAt(0)}
+                    <Avatar src={mensagem.remetente?.avatar}>
+                      {mensagem.remetente?.nome?.charAt(0)}
                     </Avatar>
                     <Box>
                       <Typography variant="h6">
-                        {mensagem.remetente.nome}
-                        {mensagem.remetente.redeSocial?.plataforma && (
+                        {mensagem.remetente?.nome || 'Usuário removido'}
+                        {mensagem.remetente?.redeSocial?.plataforma && (
                           <span style={{ marginLeft: 8 }}>
                             {getIconeRedeSocial(mensagem.remetente.redeSocial.plataforma)}
                             {mensagem.remetente.redeSocial.usuario}
@@ -134,39 +159,44 @@ function Mensagens() {
                         )}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {mensagem.remetente.email}
-                        {mensagem.remetente.telefone && ` • ${mensagem.remetente.telefone}`}
+                        {mensagem.remetente?.email}
+                        {mensagem.remetente?.telefone && ` • ${mensagem.remetente.telefone}`}
                       </Typography>
                     </Box>
                   </Box>
 
                   <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton
-                      color="primary"
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<ReplyIcon />}
                       onClick={() => {
                         setMensagemSelecionada(mensagem);
                         setOpenResponder(true);
                       }}
                     >
-                      <ReplyIcon />
-                    </IconButton>
-                    <IconButton
+                      Responder
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="small"
                       color="error"
+                      startIcon={<DeleteIcon />}
                       onClick={() => handleDeletar(mensagem._id)}
                     >
-                      <DeleteIcon />
-                    </IconButton>
+                      Excluir
+                    </Button>
                   </Box>
                 </Box>
 
                 {mensagem.pet && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                     <PetsIcon color="primary" />
-                    <Chip 
-                      label={`Interesse em ${mensagem.pet.nome}`} 
-                      size="small" 
-                      color="primary" 
-                      variant="outlined" 
+                    <Chip
+                      label={`Interesse em ${mensagem.pet.nome}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
                     />
                   </Box>
                 )}
@@ -192,7 +222,7 @@ function Mensagens() {
       {/* Modal de Resposta */}
       <Dialog open={openResponder} onClose={() => setOpenResponder(false)} maxWidth="md" fullWidth>
         <DialogTitle>
-          Responder {mensagemSelecionada?.remetente.nome}
+          Responder {mensagemSelecionada?.remetente?.nome}
           {mensagemSelecionada?.pet && ` sobre ${mensagemSelecionada.pet.nome}`}
         </DialogTitle>
         <DialogContent>
@@ -224,9 +254,9 @@ function Mensagens() {
           <Button onClick={() => setOpenResponder(false)} disabled={loading}>
             Cancelar
           </Button>
-          <Button 
-            onClick={handleResponder} 
-            variant="contained" 
+          <Button
+            onClick={handleResponder}
+            variant="contained"
             disabled={loading || !resposta.trim()}
           >
             {loading ? 'Enviando...' : 'Enviar Resposta'}

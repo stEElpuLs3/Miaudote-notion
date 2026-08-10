@@ -2,9 +2,7 @@ import axios from 'axios';
 import { API_URL } from '../config';
 import { attachAuthInterceptors } from './authInterceptor';
 
-const api = axios.create({
-  baseURL: API_URL, // backend
-});
+const api = axios.create({ baseURL: API_URL, timeout: 20000 });
 
 attachAuthInterceptors(api);
 

@@ -102,18 +102,17 @@ export default function PetCard({ pet }) {
       console.log('✅ Mensagem salva no banco');
 
       // 2. Tentar enviar email (não crítico)
-      try {
-        const emailResponse = await api.post('/api/email/interesse', {
-          petId: _id,
-          interessadoId: currentUserId
-        });
-        console.log('✅ Email enviado:', emailResponse.data);
-      } catch (emailError) {
-        console.log('⚠️ Email não enviado, mas mensagem salva:', emailError.message);
-      }
-
+      // 2. Mensagem já está salva: libera a interface na hora
       setSucesso(true);
       setMensagem('');
+
+      // 3. E-mail é secundário — dispara sem travar o botão
+      api.post('/api/email/interesse', {
+        petId: _id,
+        interessadoId: currentUserId
+      })
+        .then(() => console.log('✅ Email enviado'))
+        .catch((emailError) => console.log('⚠️ Email não enviado:', emailError.message));
 
       // Fechar modal após 2 segundos
       setTimeout(() => {
