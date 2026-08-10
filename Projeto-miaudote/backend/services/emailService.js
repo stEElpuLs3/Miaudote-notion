@@ -1,27 +1,72 @@
-// backend/services/emailService.js
-const nodemailer = require('nodemailer');
+const REMETENTE_PADRAO = {
+  name: 'Miaudote',
+  email: process.env.EMAIL_USER,
+};
 
-// Configuração do transporter Gmail com SSL
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
-  },
-  tls: {
-    rejectUnauthorized: false // Ignora certificados auto-assinados
-  },
-  secure: true, // Usa SSL
-  requireTLS: true
-});
+function lerRemetente(from) {
+  if (!from) return REMETENTE_PADRAO;
+  const casou = /^\s*(.*?)\s*<\s*([^>]+?)\s*>\s*$/.exec(from);
+  if (!casou) return { name: REMETENTE_PADRAO.name, email: String(from).trim() };
+  return { name: casou[1] || REMETENTE_PADRAO.name, email: casou[2] };
+}
 
-// Verificar conexão
-transporter.verify((error, success) => {
+function lerDestinatarios(to) {
+  const lista = Array.isArray(to) ? to : String(to || '').split(',');
+  return lista
+    .map((endereco) => ({ email: String(endereco).trim() }))
+    .filter((item) => item.email);
+}
+
+const transporter = {
+  async sendMail({ from, to, subject, html, text }) {
+    if (!process.env.BREVO_API_KEY) {
+      throw new Error('BREVO_API_KEY nao definida');
+    }
+
+    const destinatarios = lerDestinatarios(to);
+    if (destinatarios.length === 0) {
+      throw new Error('E-mail sem destinatario');
+    }
+
+    const resposta = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY,
+        'content-type': 'application/json',
+        accept: 'application/json',
+      },
+      body: JSON.stringify({
+        sender: lerRemetente(from),
+        to: destinatarios,
+        subject: subject || '(sem assunto)',
+        htmlContent: html || `<p>${text || ''}</p>`,
+      }),
+    });
+
+    if (!resposta.ok) {
+      const detalhe = await resposta.text();
+      throw new Error(`Brevo respondeu ${resposta.status}: ${detalhe}`);
+    }
+
+    return resposta.json();
+  },
+
+  verify(callback) {
+    const erro = process.env.BREVO_API_KEY
+      ? null
+      : new Error('BREVO_API_KEY nao definida');
+    if (typeof callback === 'function') return callback(erro, !erro);
+    if (erro) throw erro;
+    return true;
+  },
+};
+
+// Verificar configuração
+transporter.verify((error) => {
   if (error) {
-    console.error('❌ Erro na configuração do email:', error);
-    console.log('📧 Tentando configuração alternativa...');
+    console.error('❌ Erro na configuração do email:', error.message);
   } else {
-    console.log('✅ Servidor de email pronto!');
+    console.log('✅ Servidor de email pronto! (Brevo API)');
   }
 });
 
