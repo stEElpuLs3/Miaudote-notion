@@ -13,8 +13,8 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AppLogo from '../AppLogo/AppLogo';
 import { Stack } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 
-// ATUALIZE: Adicione Mensagens nas páginas (requireLogin: true)
 const paginas = [
     {label:"Cadastrar Pet", href:"/register-pet", requireLogin:true},
     {label:"Buscar Pets", href:"/search-pets", requireLogin:false},
@@ -189,7 +189,7 @@ export default function NavBar({isOpenModal, setOpenModal}) {
                                 </Tooltip>
                             ) : (
                                 <Stack direction="Row">
-                                    <Button color="inherit" component="a" href='/cadastro-usuario'>Cadastrar</Button>
+                                        <Button color="inherit" component={RouterLink} to="/cadastro-usuario">Cadastrar</Button>
                                     <Button color="inherit" onClick={() => setOpenModal(!isOpenModal)}>Login</Button>
                                 </Stack>
                             )

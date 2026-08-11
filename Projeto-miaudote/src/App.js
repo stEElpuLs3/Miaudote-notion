@@ -22,7 +22,7 @@ function App() {
     return null;
   };
 
-  const [isOpenModal, setOpenModal] = useState(!UserClass.IsLoggedIn());
+  const [isOpenModal, setOpenModal] = useState(false);
 
   return (
     <Router>
