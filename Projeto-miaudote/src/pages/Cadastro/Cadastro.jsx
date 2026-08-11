@@ -1,80 +1,188 @@
+// src/pages/Cadastro/Cadastro.jsx
 import React, { useState } from 'react';
 import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
-import { Container, Stack } from "@mui/material";
+import { Container, Stack } from '@mui/material';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Modal from '@mui/material/Modal';
-import axios from 'axios';
-import LoginForm from '../../components/LoginForm/LoginForm'; // caminho corrigido
-import { API_URL } from '../../config';
+import api from '../../services/api';
+import LoginForm from '../../components/LoginForm/LoginForm';
+import {
+  validarNome,
+  validarEmail,
+  validarSenha,
+  validarConfirmacaoSenha,
+  validarTelefone,
+  mascaraTelefone,
+  validarFormulario,
+} from '../../utils/validacoes';
+
+const REGRAS = {
+  nome: validarNome,
+  email: validarEmail,
+  senha: validarSenha,
+  confirmarSenha: validarConfirmacaoSenha,
+  telefone: validarTelefone,
+};
+
+const VALORES_INICIAIS = {
+  nome: '',
+  email: '',
+  senha: '',
+  confirmarSenha: '',
+  telefone: '',
+  avatar: '',
+};
 
 const Cadastro = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
-  const [avatar, setAvatar] = useState('');
-
+  const [valores, setValores] = useState(VALORES_INICIAIS);
+  const [erros, setErros] = useState({});
+  const [enviando, setEnviando] = useState(false);
   const [openLoginModal, setOpenLoginModal] = useState(false);
 
-  // Abrir modal de login
-  const handleOpenLogin = () => {
-    console.log('Abrindo modal de login');
-    setOpenLoginModal(true);
+  const handleOpenLogin = () => setOpenLoginModal(true);
+  const handleCloseLogin = () => setOpenLoginModal(false);
+
+  // Atualiza o campo e apaga o erro dele enquanto a pessoa digita
+  const alterar = (campo) => (evento) => {
+    const valor =
+      campo === 'telefone'
+        ? mascaraTelefone(evento.target.value)
+        : evento.target.value;
+
+    setValores((atual) => ({ ...atual, [campo]: valor }));
+    setErros((atual) => ({ ...atual, [campo]: null }));
   };
 
-  // Fechar modal de login
-  const handleCloseLogin = () => {
-    console.log('Fechando modal de login');
-    setOpenLoginModal(false);
+  // Valida só aquele campo, quando a pessoa sai dele
+  const validarCampo = (campo) => () => {
+    const regra = REGRAS[campo];
+    if (!regra) return;
+    setErros((atual) => ({ ...atual, [campo]: regra(valores[campo], valores) }));
   };
 
-  // Função de cadastro
   const handleCadastro = async () => {
-    console.log('Tentando cadastrar usuário com os dados:', { name, email, password, phone, avatar });
+    const { erros: novosErros, valido } = validarFormulario(valores, REGRAS);
+    setErros(novosErros);
+    if (!valido) return;
 
+    setEnviando(true);
     try {
-      const response = await axios.post(`${API_URL}/api/usuarios/register`, {
-        nome: name,
-        email: email,
-        senha: password,
-        telefone: phone,
-  
+      const response = await api.post('/api/usuarios/register', {
+        nome: valores.nome.trim(),
+        email: valores.email.trim().toLowerCase(),
+        senha: valores.senha,
+        telefone: valores.telefone,
+        avatar: valores.avatar.trim(),
       });
 
-      console.log('Resposta do backend:', response.data);
-      alert(response.data.message);
-
-      // Limpar formulário
-      setName('');
-      setEmail('');
-      setPassword('');
-      setPhone('');
-      setAvatar('');
-
+      alert(response.data.message || 'Cadastro realizado com sucesso!');
+      setValores(VALORES_INICIAIS);
+      setErros({});
+      setOpenLoginModal(true);
     } catch (error) {
-      console.error('Erro ao cadastrar usuário:', error.response ? error.response.data : error);
-      alert(error.response?.data?.message || 'Erro ao cadastrar usuário');
+      const mensagem =
+        error.response?.data?.message || 'Erro ao cadastrar usuário';
+
+      // Se o backend reclamou do e-mail, mostra o aviso no próprio campo
+      if (/e-?mail/i.test(mensagem)) {
+        setErros((atual) => ({ ...atual, email: mensagem }));
+      }
+      alert(mensagem);
+    } finally {
+      setEnviando(false);
     }
+  };
+
+  const aoEnviar = (evento) => {
+    evento.preventDefault();
+    handleCadastro();
   };
 
   return (
     <Container maxWidth="sm">
-      <Box sx={{ mt: 5 }}>
+      <Box component="form" onSubmit={aoEnviar} noValidate sx={{ mt: 5 }}>
         <Typography variant="h4" align="center" gutterBottom>
           Cadastro
         </Typography>
 
         <Stack spacing={2}>
-          <TextField label="Nome" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-          <TextField label="Email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth />
-          <TextField label="Senha" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
-          <TextField label="Telefone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />
-          <TextField label="Avatar (URL)" value={avatar} onChange={(e) => setAvatar(e.target.value)} fullWidth />
+          <TextField
+            label="Nome"
+            required
+            value={valores.nome}
+            onChange={alterar('nome')}
+            onBlur={validarCampo('nome')}
+            error={Boolean(erros.nome)}
+            helperText={erros.nome || ' '}
+            fullWidth
+          />
 
-          <Button variant="contained" color="primary" onClick={handleCadastro}>
-            Cadastrar
+          <TextField
+            label="E-mail"
+            type="email"
+            required
+            value={valores.email}
+            onChange={alterar('email')}
+            onBlur={validarCampo('email')}
+            error={Boolean(erros.email)}
+            helperText={erros.email || ' '}
+            fullWidth
+          />
+
+          <TextField
+            label="Senha"
+            type="password"
+            required
+            value={valores.senha}
+            onChange={alterar('senha')}
+            onBlur={validarCampo('senha')}
+            error={Boolean(erros.senha)}
+            helperText={erros.senha || 'Mínimo de 6 caracteres'}
+            fullWidth
+          />
+
+          <TextField
+            label="Confirmar senha"
+            type="password"
+            required
+            value={valores.confirmarSenha}
+            onChange={alterar('confirmarSenha')}
+            onBlur={validarCampo('confirmarSenha')}
+            error={Boolean(erros.confirmarSenha)}
+            helperText={erros.confirmarSenha || ' '}
+            fullWidth
+          />
+
+          <TextField
+            label="Telefone"
+            required
+            placeholder="(27) 99999-9999"
+            value={valores.telefone}
+            onChange={alterar('telefone')}
+            onBlur={validarCampo('telefone')}
+            error={Boolean(erros.telefone)}
+            helperText={erros.telefone || ' '}
+            inputProps={{ inputMode: 'numeric' }}
+            fullWidth
+          />
+
+          <TextField
+            label="Avatar (URL)"
+            value={valores.avatar}
+            onChange={alterar('avatar')}
+            helperText="Opcional — você pode escolher uma foto depois, no seu perfil"
+            fullWidth
+          />
+
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={enviando}
+          >
+            {enviando ? 'Cadastrando...' : 'Cadastrar'}
           </Button>
 
           <Button variant="outlined" onClick={handleOpenLogin}>
@@ -90,7 +198,14 @@ const Cadastro = () => {
         aria-labelledby="modal-login"
         aria-describedby="modal-login-form"
       >
-        <Box sx={{ margin: '10% auto', padding: '20px', backgroundColor: 'white', width: '400px' }}>
+        <Box
+          sx={{
+            margin: '10% auto',
+            padding: '20px',
+            backgroundColor: 'white',
+            width: '400px',
+          }}
+        >
           <LoginForm closeModal={handleCloseLogin} />
         </Box>
       </Modal>
