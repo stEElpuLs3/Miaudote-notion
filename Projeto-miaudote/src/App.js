@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Termos from './pages/Termos';
+import Footer from './components/Footer/Footer';
 import { CssBaseline, Box, Container, Typography } from '@mui/material';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
@@ -43,6 +45,7 @@ function App() {
           <Route path="/logout" element={<LogOut />} />
           <Route path="/favoritos" element={<Favoritos />} />
           <Route path="/mensagens" element={<Mensagens />} />
+          <Route path="/termos" element={<Termos />} />
           <Route
             path="*"
             element={
@@ -52,6 +55,7 @@ function App() {
             }
           />
         </Routes>
+        <Footer />
       </Box>
     </Router>
   );
