@@ -1,3 +1,4 @@
+// src/pages/RegisterPet.js
 import React, { useState } from 'react';
 import {
   Container, TextField, Button, Typography, Box, Modal,
@@ -7,6 +8,13 @@ import { styled } from '@mui/material/styles';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
+import {
+  obrigatorio,
+  validarTexto,
+  validarIdade,
+  validarCep,
+  mascaraCep,
+} from '../utils/validacoes';
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -20,160 +28,166 @@ const VisuallyHiddenInput = styled('input')({
   width: 1,
 });
 
+const MAX_IMAGENS = 5;
+const TAMANHO_MAXIMO = 5 * 1024 * 1024; // 5 MB
+
+// As chaves com ponto acompanham o atributo name dos campos de endereço
+const REGRAS = {
+  nome: (v) => validarTexto(v, { nome: 'Nome do pet', minimo: 2, maximo: 40 }),
+  especie: (v) => obrigatorio(v, 'Espécie'),
+  idade: (v) => (String(v).trim() === '' ? null : validarIdade(v)),
+  descricao: (v) =>
+    String(v).trim() === '' ? null : validarTexto(v, { nome: 'Descrição', maximo: 500 }),
+  'endereco.cep': (v) => validarCep(v, { exigir: true }),
+  'endereco.cidade': (v) => validarTexto(v, { nome: 'Cidade', minimo: 2, maximo: 60 }),
+  'endereco.estado': (v) => obrigatorio(v, 'Estado'),
+};
+
+const valoresIniciais = () => ({
+  nome: '',
+  especie: '',
+  raca: '',
+  idade: '',
+  descricao: '',
+  endereco: { cep: '', rua: '', numero: '', bairro: '', cidade: '', estado: '' },
+});
+
+// Lê um valor pelo caminho, aceitando "nome" ou "endereco.cep"
+const lerValor = (dados, campo) => {
+  if (!campo.includes('.')) return dados[campo];
+  const [pai, filho] = campo.split('.');
+  return dados[pai][filho];
+};
+
 function RegisterPet() {
   const [open, setOpen] = useState(false);
-  const [petData, setPetData] = useState({
-    nome: '',
-    especie: '',
-    raca: '',
-    idade: '',
-    descricao: '',
-    endereco: {
-      cep: '',
-      rua: '',
-      numero: '',
-      bairro: '',
-      cidade: '',
-      estado: ''
-    }
-  });
+  const [petData, setPetData] = useState(valoresIniciais);
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [erros, setErros] = useState({});
+  const [enviando, setEnviando] = useState(false);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name } = e.target;
+    let { value } = e.target;
+
+    if (name === 'endereco.cep') value = mascaraCep(value);
+
+    setErros((atual) => ({ ...atual, [name]: null }));
 
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
-      setPetData(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
+      setPetData((prev) => ({ ...prev, [parent]: { ...prev[parent], [child]: value } }));
     } else {
-      setPetData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setPetData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    const newPreviews = files.map(file => ({
-      file,
-      preview: URL.createObjectURL(file)
-    }));
+  const validarCampo = (campo) => () => {
+    const regra = REGRAS[campo];
+    if (!regra) return;
+    setErros((atual) => ({ ...atual, [campo]: regra(lerValor(petData, campo)) }));
+  };
 
-    setImages(prev => [...prev, ...files]);
-    setImagePreviews(prev => [...prev, ...newPreviews]);
+  const handleImageUpload = (e) => {
+    const escolhidos = Array.from(e.target.files);
+    e.target.value = ''; // permite escolher o mesmo arquivo outra vez
+
+    const vagas = MAX_IMAGENS - images.length;
+    if (vagas <= 0) {
+      setErros((a) => ({ ...a, imagens: `Máximo de ${MAX_IMAGENS} fotos` }));
+      return;
+    }
+
+    const aceitos = [];
+    let pesados = 0;
+
+    escolhidos.slice(0, vagas).forEach((arquivo) => {
+      if (arquivo.size > TAMANHO_MAXIMO) pesados += 1;
+      else aceitos.push(arquivo);
+    });
+
+    let aviso = null;
+    if (pesados > 0) aviso = `${pesados} foto(s) acima de 5 MB foram ignoradas`;
+    else if (escolhidos.length > vagas) aviso = `Só cabem mais ${vagas} foto(s)`;
+
+    setImages((prev) => [...prev, ...aceitos]);
+    setImagePreviews((prev) => [
+      ...prev,
+      ...aceitos.map((file) => ({ file, preview: URL.createObjectURL(file) })),
+    ]);
+    setErros((a) => ({ ...a, imagens: aviso }));
   };
 
   const removeImage = (index) => {
-    const newImages = [...images];
-    const newPreviews = [...imagePreviews];
+    URL.revokeObjectURL(imagePreviews[index].preview);
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    setErros((a) => ({ ...a, imagens: null }));
+  };
 
-    newImages.splice(index, 1);
-    newPreviews.splice(index, 1);
-
-    setImages(newImages);
-    setImagePreviews(newPreviews);
+  const validarTudo = () => {
+    const novos = {};
+    Object.keys(REGRAS).forEach((campo) => {
+      const erro = REGRAS[campo](lerValor(petData, campo));
+      if (erro) novos[campo] = erro;
+    });
+    if (images.length === 0) novos.imagens = 'Adicione ao menos uma foto do pet';
+    return novos;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const novosErros = validarTudo();
+    setErros(novosErros);
+    if (Object.keys(novosErros).length > 0) return;
+
+    let user = null;
     try {
-      let user = null;
-      try {
-        user = JSON.parse(localStorage.getItem('user'));
-      } catch {
-        user = null;
-      }
+      user = JSON.parse(localStorage.getItem('user'));
+    } catch {
+      user = null;
+    }
+    const userId = user?._id || user?.id || null;
 
-      const userId = user?._id || user?.id || null;
+    if (!userId) {
+      alert('Sua sessão expirou. Faça login novamente para cadastrar um pet.');
+      return;
+    }
 
-      if (!userId) {
-        alert('Sua sessão expirou. Faça login novamente para cadastrar um pet.');
-        return;
-      }
+    setEnviando(true);
+    try {
+      const formData = new FormData();
+      formData.append('nome', petData.nome.trim());
+      formData.append('especie', petData.especie);
+      formData.append('raca', petData.raca.trim());
+      formData.append('idade', petData.idade);
+      formData.append('descricao', petData.descricao.trim());
+      formData.append('user', userId);
+      formData.append('cep', petData.endereco.cep);
+      formData.append('rua', petData.endereco.rua.trim());
+      formData.append('numero', petData.endereco.numero.trim());
+      formData.append('bairro', petData.endereco.bairro.trim());
+      formData.append('cidade', petData.endereco.cidade.trim());
+      formData.append('estado', petData.endereco.estado);
 
-      // Tenta enviar com imagens primeiro
-      try {
-        const formData = new FormData();
+      images.forEach((image) => formData.append('images', image));
 
-        // Adiciona todos os campos como strings individuais
-        formData.append('nome', petData.nome);
-        formData.append('especie', petData.especie);
-        formData.append('raca', petData.raca);
-        formData.append('idade', petData.idade);
-        formData.append('descricao', petData.descricao);
-        formData.append('user', userId);
+      await api.post('/api/pets', formData);
 
-        // Adiciona campos de endereço individualmente
-        formData.append('cep', petData.endereco.cep);
-        formData.append('rua', petData.endereco.rua);
-        formData.append('numero', petData.endereco.numero);
-        formData.append('bairro', petData.endereco.bairro);
-        formData.append('cidade', petData.endereco.cidade);
-        formData.append('estado', petData.endereco.estado);
-
-        images.forEach((image) => {
-          formData.append('images', image);
-        });
-
-        const response = await api.post('/api/pets', formData);
-
-        console.log('Pet cadastrado com sucesso:', response.data);
-        setOpen(true);
-
-      } catch (uploadError) {
-        console.log('Upload de imagens falhou, cadastrando sem imagens:', uploadError);
-
-        // Fallback: cadastra sem imagens como JSON
-        const response = await api.post('/api/pets', {
-          nome: petData.nome,
-          especie: petData.especie,
-          raca: petData.raca,
-          idade: petData.idade,
-          descricao: petData.descricao,
-          user: userId,
-          cep: petData.endereco.cep,
-          rua: petData.endereco.rua,
-          numero: petData.endereco.numero,
-          bairro: petData.endereco.bairro,
-          cidade: petData.endereco.cidade,
-          estado: petData.endereco.estado
-        });
-
-        console.log('Pet cadastrado sem imagens:', response.data);
-        setOpen(true);
-      }
-
-      // Limpar formulário
-      setPetData({
-        nome: '',
-        especie: '',
-        raca: '',
-        idade: '',
-        descricao: '',
-        endereco: {
-          cep: '',
-          rua: '',
-          numero: '',
-          bairro: '',
-          cidade: '',
-          estado: ''
-        }
-      });
+      imagePreviews.forEach((p) => URL.revokeObjectURL(p.preview));
+      setPetData(valoresIniciais());
       setImages([]);
       setImagePreviews([]);
-
+      setErros({});
+      setOpen(true);
     } catch (error) {
-      console.error('Erro ao cadastrar pet:', error);
-      alert('Erro ao cadastrar pet: ' + error.message);
+      const mensagem =
+        error.response?.data?.message || error.message || 'Erro desconhecido';
+      alert('Erro ao cadastrar pet: ' + mensagem);
+    } finally {
+      setEnviando(false);
     }
   };
 
@@ -182,7 +196,8 @@ function RegisterPet() {
       <Typography variant="h4" component="h1" gutterBottom>
         Cadastrar Pet
       </Typography>
-      <form onSubmit={handleSubmit}>
+
+      <form onSubmit={handleSubmit} noValidate>
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
             <TextField
@@ -191,9 +206,12 @@ function RegisterPet() {
               variant="outlined"
               fullWidth
               margin="normal"
+              required
               value={petData.nome}
               onChange={handleInputChange}
-              required
+              onBlur={validarCampo('nome')}
+              error={Boolean(erros.nome)}
+              helperText={erros.nome || ' '}
             />
           </Grid>
 
@@ -205,9 +223,12 @@ function RegisterPet() {
               fullWidth
               margin="normal"
               select
+              required
               value={petData.especie}
               onChange={handleInputChange}
-              required
+              onBlur={validarCampo('especie')}
+              error={Boolean(erros.especie)}
+              helperText={erros.especie || ' '}
             >
               <MenuItem value="cachorro">Cachorro</MenuItem>
               <MenuItem value="gato">Gato</MenuItem>
@@ -224,6 +245,7 @@ function RegisterPet() {
               margin="normal"
               value={petData.raca}
               onChange={handleInputChange}
+              helperText="Opcional — deixe em branco se não souber"
             />
           </Grid>
 
@@ -235,8 +257,12 @@ function RegisterPet() {
               fullWidth
               margin="normal"
               type="number"
+              inputProps={{ min: 0, max: 30 }}
               value={petData.idade}
               onChange={handleInputChange}
+              onBlur={validarCampo('idade')}
+              error={Boolean(erros.idade)}
+              helperText={erros.idade || 'Opcional — deixe em branco se não souber'}
             />
           </Grid>
 
@@ -251,6 +277,11 @@ function RegisterPet() {
               rows={4}
               value={petData.descricao}
               onChange={handleInputChange}
+              onBlur={validarCampo('descricao')}
+              error={Boolean(erros.descricao)}
+              helperText={
+                erros.descricao || `${petData.descricao.length}/500 caracteres`
+              }
             />
           </Grid>
         </Grid>
@@ -261,14 +292,21 @@ function RegisterPet() {
               Localização do Pet
             </Typography>
           </Grid>
+
           <Grid item xs={12} md={3}>
             <TextField
               name="endereco.cep"
               label="CEP"
               variant="outlined"
               fullWidth
+              required
+              placeholder="29145-795"
+              inputProps={{ inputMode: 'numeric' }}
               value={petData.endereco.cep}
               onChange={handleInputChange}
+              onBlur={validarCampo('endereco.cep')}
+              error={Boolean(erros['endereco.cep'])}
+              helperText={erros['endereco.cep'] || ' '}
             />
           </Grid>
 
@@ -280,6 +318,7 @@ function RegisterPet() {
               fullWidth
               value={petData.endereco.rua}
               onChange={handleInputChange}
+              helperText=" "
             />
           </Grid>
 
@@ -291,6 +330,7 @@ function RegisterPet() {
               fullWidth
               value={petData.endereco.numero}
               onChange={handleInputChange}
+              helperText=" "
             />
           </Grid>
 
@@ -302,6 +342,7 @@ function RegisterPet() {
               fullWidth
               value={petData.endereco.bairro}
               onChange={handleInputChange}
+              helperText=" "
             />
           </Grid>
 
@@ -311,8 +352,12 @@ function RegisterPet() {
               label="Cidade"
               variant="outlined"
               fullWidth
+              required
               value={petData.endereco.cidade}
               onChange={handleInputChange}
+              onBlur={validarCampo('endereco.cidade')}
+              error={Boolean(erros['endereco.cidade'])}
+              helperText={erros['endereco.cidade'] || ' '}
             />
           </Grid>
 
@@ -323,8 +368,12 @@ function RegisterPet() {
               variant="outlined"
               fullWidth
               select
+              required
               value={petData.endereco.estado}
               onChange={handleInputChange}
+              onBlur={validarCampo('endereco.estado')}
+              error={Boolean(erros['endereco.estado'])}
+              helperText={erros['endereco.estado'] || ' '}
             >
               <MenuItem value="AC">Acre</MenuItem>
               <MenuItem value="AL">Alagoas</MenuItem>
@@ -361,7 +410,7 @@ function RegisterPet() {
         {imagePreviews.length > 0 && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Imagens do Pet ({imagePreviews.length})
+              Imagens do Pet ({imagePreviews.length}/{MAX_IMAGENS})
             </Typography>
             <Grid container spacing={1}>
               {imagePreviews.map((preview, index) => (
@@ -375,7 +424,7 @@ function RegisterPet() {
                         height: 100,
                         objectFit: 'cover',
                         borderRadius: 8,
-                        border: index === 0 ? '3px solid #1976d2' : '1px solid #ddd'
+                        border: index === 0 ? '3px solid #1976d2' : '1px solid #ddd',
                       }}
                     />
                     {index === 0 && (
@@ -387,7 +436,7 @@ function RegisterPet() {
                           position: 'absolute',
                           top: 5,
                           left: 5,
-                          fontSize: '0.6rem'
+                          fontSize: '0.6rem',
                         }}
                       />
                     )}
@@ -397,7 +446,7 @@ function RegisterPet() {
                         position: 'absolute',
                         top: 5,
                         right: 5,
-                        backgroundColor: 'rgba(255,255,255,0.8)'
+                        backgroundColor: 'rgba(255,255,255,0.8)',
                       }}
                       onClick={() => removeImage(index)}
                     >
@@ -410,13 +459,21 @@ function RegisterPet() {
           </Box>
         )}
 
-        <Box sx={{ mt: 3, display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+        <Box
+          sx={{
+            mt: 3,
+            display: 'flex',
+            gap: 2,
+            flexDirection: { xs: 'column', sm: 'row' },
+          }}
+        >
           <Button
             component="label"
             variant="outlined"
+            color={erros.imagens ? 'error' : 'primary'}
             startIcon={<CloudUploadIcon />}
           >
-            Adicionar Imagens
+            Adicionar Imagens *
             <VisuallyHiddenInput
               type="file"
               onChange={handleImageUpload}
@@ -425,34 +482,36 @@ function RegisterPet() {
             />
           </Button>
 
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={!petData.nome || !petData.especie}
-          >
-            Cadastrar Pet
+          <Button type="submit" variant="contained" disabled={enviando}>
+            {enviando ? 'Cadastrando...' : 'Cadastrar Pet'}
           </Button>
         </Box>
+
+        {erros.imagens && (
+          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+            {erros.imagens}
+          </Typography>
+        )}
       </form>
 
       <Modal open={open} onClose={() => setOpen(false)}>
-        <Box sx={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 400,
-          bgcolor: 'background.paper',
-          boxShadow: 24,
-          p: 4,
-          borderRadius: 2
-        }}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 400,
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 2,
+          }}
+        >
           <Typography variant="h6" component="h2" gutterBottom>
             🎉 Parabéns!
           </Typography>
-          <Typography sx={{ mt: 2 }}>
-            O pet foi cadastrado com sucesso!
-          </Typography>
+          <Typography sx={{ mt: 2 }}>O pet foi cadastrado com sucesso!</Typography>
           <Button
             variant="contained"
             fullWidth
