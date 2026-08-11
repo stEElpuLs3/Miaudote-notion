@@ -1,3 +1,4 @@
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 const REMETENTE_PADRAO = {
   name: 'Miaudote',
   email: process.env.EMAIL_USER,
@@ -138,7 +139,7 @@ exports.enviarEmailNovaMensagem = async (destinatario, remetente, pet) => {
           ` : ''}
 
           <p>
-            <a href="http://localhost:3000/mensagens" 
+            <a href="${FRONTEND_URL}/mensagens"  
                style="background: #1976d2; color: white; padding: 12px 24px; 
                       text-decoration: none; border-radius: 4px; display: inline-block;">
               Ver Mensagem
