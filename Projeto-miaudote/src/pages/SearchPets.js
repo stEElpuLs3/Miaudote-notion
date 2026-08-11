@@ -5,7 +5,6 @@ import {
   Box,
   Slider,
   Button,
-  Stack,
   Alert,
   CircularProgress,
   Grid
@@ -16,6 +15,7 @@ import PetCard from '../components/PetCard/PetCard';
 
 const MIN = 1;
 const MAX = 100;
+const LARGURA = 720;
 
 const marks = [
   { value: MIN, label: '1 km' },
@@ -34,6 +34,17 @@ function calcularBbox(lat, lng, raioKm) {
     (lng + grausLng).toFixed(6),
     (lat + grausLat).toFixed(6)
   ].join(',');
+}
+
+const OSM_BASE = 'https://www.openstreetmap.org/export/embed.html';
+
+function urlDoMapa(lat, lng, raioKm) {
+  const params = new URLSearchParams({
+    bbox: calcularBbox(lat, lng, raioKm),
+    layer: 'mapnik',
+    marker: `${lat},${lng}`
+  });
+  return `${OSM_BASE}?${params.toString()}`;
 }
 
 function SearchPets() {
@@ -60,7 +71,7 @@ function SearchPets() {
         },
         (erro) => {
           const mensagens = {
-            1: 'Você negou o acesso à localização. Libere a permissão no cadeado da barra de endereço e tente de novo.',
+            1: 'Você negou o acesso à localização. Libere a permissão no cadeado da barra de endereço e recarregue a página.',
             2: 'Não foi possível determinar sua localização agora.',
             3: 'A busca pela sua localização demorou demais.'
           };
@@ -92,15 +103,6 @@ function SearchPets() {
     }
   };
 
-  const atualizarLocalizacao = async () => {
-    setError(null);
-    try {
-      await obterLocalizacao();
-    } catch (erro) {
-      setError(erro.message);
-    }
-  };
-
   return (
     <Container sx={{ py: 4 }}>
       <Box sx={{ textAlign: 'center', mb: 4 }}>
@@ -112,11 +114,11 @@ function SearchPets() {
         </Typography>
       </Box>
 
-      <Box sx={{ maxWidth: 520, mx: 'auto' }}>
+      <Box sx={{ maxWidth: LARGURA, mx: 'auto' }}>
         {/* Mapa da área de busca */}
         <Box
           sx={{
-            height: 260,
+            height: { xs: 300, md: 460 },
             mb: 3,
             borderRadius: 2,
             overflow: 'hidden',
@@ -128,11 +130,7 @@ function SearchPets() {
             <Box
               component="iframe"
               title="Área de busca"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${calcularBbox(
-                localizacao.lat,
-                localizacao.lng,
-                raio
-              )}&layer=mapnik&marker=${localizacao.lat},${localizacao.lng}`}
+              src={urlDoMapa(localizacao.lat, localizacao.lng, raio)}
               sx={{ width: '100%', height: '100%', border: 0, display: 'block' }}
             />
           ) : (
@@ -170,22 +168,17 @@ function SearchPets() {
           onChange={(_, valor) => setRaio(valor)}
         />
 
-        <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 2 }}>
+        <Box sx={{ textAlign: 'center', mt: 2 }}>
           <Button
             variant="contained"
+            size="large"
             onClick={buscarPetsProximos}
             disabled={loading}
             startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
           >
             {loading ? 'Buscando...' : 'Buscar pets próximos'}
           </Button>
-
-          {localizacao && (
-            <Button variant="text" onClick={atualizarLocalizacao} disabled={loading}>
-              Atualizar localização
-            </Button>
-          )}
-        </Stack>
+        </Box>
 
         {error && (
           <Alert severity="error" sx={{ mt: 3 }}>
@@ -195,7 +188,7 @@ function SearchPets() {
       </Box>
 
       {buscou && !loading && !error && pets.length === 0 && (
-        <Alert severity="info" sx={{ mt: 4, maxWidth: 520, mx: 'auto' }}>
+        <Alert severity="info" sx={{ mt: 4, maxWidth: LARGURA, mx: 'auto' }}>
           Nenhum pet encontrado num raio de {raio} km. Tente aumentar a distância.
         </Alert>
       )}
