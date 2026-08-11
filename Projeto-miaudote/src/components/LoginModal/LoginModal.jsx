@@ -1,3 +1,4 @@
+// src/components/LoginModal/LoginModal.jsx
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Modal from '@mui/material/Modal';
@@ -11,22 +12,21 @@ const style = {
   width: 400,
   bgcolor: 'background.paper',
   p: 4,
-  borderRadius: "10px"
+  borderRadius: '10px',
 };
 
-export default function LoginModal({open, onClose}) {
+export default function LoginModal({ open, onClose }) {
   return (
-      <Modal
-        open={open}
-        onClose={onClose}
-        aria-labelledby="login-modal"
-        aria-describedby="modal-login-form"
-        sx={{border:'none'}}
-      >
-        <Box sx={style}>
-          <LoginForm />
-        </Box>
-      </Modal>
+    <Modal
+      open={open}
+      onClose={onClose}
+      aria-labelledby="login-modal"
+      aria-describedby="modal-login-form"
+      sx={{ border: 'none' }}
+    >
+      <Box sx={style}>
+        <LoginForm onClose={onClose} />
+      </Box>
+    </Modal>
   );
 }
-

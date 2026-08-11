@@ -1,87 +1,121 @@
+// src/components/LoginForm/LoginForm.jsx
 import React, { useState } from "react";
 import { Box, Button, TextField, Typography, Stack, Link } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
-import axios from "axios";
-import { API_URL } from '../../config';
+import api from "../../services/api";
+import {
+  validarEmail,
+  obrigatorio,
+  validarFormulario,
+} from "../../utils/validacoes";
 
-export default function LoginForm({ onClose }) {
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState("");
-
-  const handleLogin = async () => {
-  try {
-    console.log('Tentando login com:', { email, senha });
-    
-    const response = await axios.post(`${API_URL}/api/usuarios/login`, {
-      email: email,
-      senha: senha,
-    });
-
-    console.log('Resposta do login:', response.data);
-
-    if (response.data && response.data.user) {
-      // CRIAR OBJETO COMPLETO DO USUÁRIO
-      const userData = {
-        _id: response.data.user.id, // ID do MongoDB
-        name: response.data.user.nome,
-        email: response.data.user.email,
-        phone: response.data.user.telefone || '',
-        avatar: response.data.user.avatar || '', // ← AGORA INCLUÍDO
-        logado: true,
-        token: response.data.token,
-        favorites: response.data.user.favoritos || [],
-        socialMedia: response.data.user.redeSocial || {},
-        address: response.data.user.endereco || {},
-        about: response.data.user.sobre || ''
-      };
-      
-      console.log('Dados completos do usuário:', userData);
-
-      // SALVAR NO LOCALSTORAGE
-      localStorage.setItem("user", JSON.stringify(userData));
-      
-      // DISPARAR EVENTO PARA ATUALIZAR NAVBAR
-      window.dispatchEvent(new Event('userLoggedIn'));
-
-      if (onClose) onClose();
-      
-      // Redirecionar para home
-      window.location.href = "/";
-      // OU se preferir recarregar:
-      // window.location.reload();
-    } else {
-      setErro("Credenciais inválidas");
-    }
-  } catch (err) {
-    console.error("Erro completo:", err);
-    console.error("Resposta do erro:", err.response?.data);
-    setErro(err.response?.data?.message || "Erro ao tentar fazer login");
-  }
+const REGRAS = {
+  email: validarEmail,
+  senha: (valor) => obrigatorio(valor, "Senha"),
 };
 
+export default function LoginForm({ onClose, closeModal }) {
+  const [valores, setValores] = useState({ email: "", senha: "" });
+  const [erros, setErros] = useState({});
+  const [erro, setErro] = useState("");
+  const [entrando, setEntrando] = useState(false);
+
+
+  const fechar = () => {
+    if (typeof onClose === "function") onClose();
+    if (typeof closeModal === "function") closeModal();
+  };
+
+  const alterar = (campo) => (evento) => {
+    setValores((atual) => ({ ...atual, [campo]: evento.target.value }));
+    setErros((atual) => ({ ...atual, [campo]: null }));
+    setErro("");
+  };
+
+  const validarCampo = (campo) => () => {
+    setErros((atual) => ({
+      ...atual,
+      [campo]: REGRAS[campo](valores[campo], valores),
+    }));
+  };
+
+  const handleLogin = async () => {
+    const { erros: novosErros, valido } = validarFormulario(valores, REGRAS);
+    setErros(novosErros);
+    if (!valido) return;
+
+    setEntrando(true);
+    setErro("");
+
+    try {
+      const response = await api.post("/api/usuarios/login", {
+        email: valores.email.trim().toLowerCase(),
+        senha: valores.senha,
+      });
+
+      if (response.data && response.data.user) {
+        const userData = {
+          _id: response.data.user.id,
+          name: response.data.user.nome,
+          email: response.data.user.email,
+          phone: response.data.user.telefone || "",
+          avatar: response.data.user.avatar || "",
+          logado: true,
+          token: response.data.token,
+          favorites: response.data.user.favoritos || [],
+          socialMedia: response.data.user.redeSocial || {},
+          address: response.data.user.endereco || {},
+          about: response.data.user.sobre || "",
+        };
+
+        localStorage.setItem("user", JSON.stringify(userData));
+        window.dispatchEvent(new Event("userLoggedIn"));
+        fechar();
+        window.location.href = "/";
+      } else {
+        setErro("Credenciais inválidas");
+      }
+    } catch (err) {
+      setErro(err.response?.data?.message || "Erro ao tentar fazer login");
+    } finally {
+      setEntrando(false);
+    }
+  };
+
+  const aoEnviar = (evento) => {
+    evento.preventDefault();
+    handleLogin();
+  };
 
   return (
-    <Box>
+    <Box component="form" onSubmit={aoEnviar} noValidate>
       <Typography id="modal-login" variant="h5" textAlign="center" mb={2}>
         Entrar
       </Typography>
 
       <Stack spacing={2}>
         <TextField
-          label="Email"
+          label="E-mail"
           type="email"
+          required
           fullWidth
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={valores.email}
+          onChange={alterar("email")}
+          onBlur={validarCampo("email")}
+          error={Boolean(erros.email)}
+          helperText={erros.email || " "}
         />
 
         <TextField
           label="Senha"
           type="password"
+          required
           fullWidth
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
+          value={valores.senha}
+          onChange={alterar("senha")}
+          onBlur={validarCampo("senha")}
+          error={Boolean(erros.senha)}
+          helperText={erros.senha || " "}
         />
 
         {erro && (
@@ -91,27 +125,26 @@ export default function LoginForm({ onClose }) {
         )}
 
         <Button
+          type="submit"
           variant="contained"
           color="primary"
           fullWidth
-          onClick={handleLogin}
+          disabled={entrando}
           sx={{ mt: 1 }}
         >
-          Entrar
+          {entrando ? "Entrando..." : "Entrar"}
         </Button>
-        
+
         <Typography variant="body2" textAlign="center">
           Não tem uma conta?{" "}
           <Link
             component={RouterLink}
             to="/cadastro-usuario"
-            onClick={onClose} // fecha o modal ao clicar no link
-            sx={{ 
-              cursor: 'pointer',
-              textDecoration: 'none',
-              '&:hover': {
-                textDecoration: 'underline'
-              }
+            onClick={fechar}
+            sx={{
+              cursor: "pointer",
+              textDecoration: "none",
+              "&:hover": { textDecoration: "underline" },
             }}
           >
             Cadastre-se!
