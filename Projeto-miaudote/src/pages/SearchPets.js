@@ -1,285 +1,219 @@
 import React, { useState } from 'react';
-import { 
-  Container, 
-  Typography, 
-  Box, 
-  Slider, 
-  Button, 
+import {
+  Container,
+  Typography,
+  Box,
+  Slider,
+  Button,
   Stack,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Grid
 } from '@mui/material';
-import axios from 'axios';
-import { API_URL } from '../config';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import api from '../services/api';
+import PetCard from '../components/PetCard/PetCard';
 
-const MAX = 100;
 const MIN = 1;
+const MAX = 100;
+
 const marks = [
-  {
-    value: MIN,
-    label: 'KM',
-  },
-  {
-    value: MAX,
-    label: '',
-  },
+  { value: MIN, label: '1 km' },
+  { value: MAX, label: '100 km' }
 ];
 
+// Converte centro + raio numa caixa de coordenadas para o mapa.
+// 1 grau de latitude equivale a ~111,32 km em qualquer ponto do planeta.
+// Na longitude a distancia encolhe conforme se afasta do equador: dai o cosseno.
+function calcularBbox(lat, lng, raioKm) {
+  const grausLat = raioKm / 111.32;
+  const grausLng = raioKm / (111.32 * Math.cos((lat * Math.PI) / 180));
+  return [
+    (lng - grausLng).toFixed(6),
+    (lat - grausLat).toFixed(6),
+    (lng + grausLng).toFixed(6),
+    (lat + grausLat).toFixed(6)
+  ].join(',');
+}
+
 function SearchPets() {
-  const [raio, setRaio] = useState(MIN);
+  const [raio, setRaio] = useState(10);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pets, setPets] = useState([]);
   const [localizacao, setLocalizacao] = useState(null);
+  const [buscou, setBuscou] = useState(false);
 
-  // Função para obter localização do usuário
   const obterLocalizacao = () => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
-        reject(new Error('Geolocalização não suportada pelo navegador'));
+        reject(new Error('Seu navegador não oferece geolocalização.'));
         return;
       }
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          setLocalizacao({ lat: latitude, lng: longitude });
-          resolve({ lat: latitude, lng: longitude });
+          const coords = { lat: latitude, lng: longitude };
+          setLocalizacao(coords);
+          resolve(coords);
         },
-        (error) => {
-          let errorMessage = 'Erro ao obter localização: ';
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage += 'Usuário negou a solicitação de geolocalização.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage += 'Localização indisponível.';
-              break;
-            case error.TIMEOUT:
-              errorMessage += 'Tempo limite da solicitação excedido.';
-              break;
-            default:
-              errorMessage += 'Erro desconhecido.';
-          }
-          reject(new Error(errorMessage));
+        (erro) => {
+          const mensagens = {
+            1: 'Você negou o acesso à localização. Libere a permissão no cadeado da barra de endereço e tente de novo.',
+            2: 'Não foi possível determinar sua localização agora.',
+            3: 'A busca pela sua localização demorou demais.'
+          };
+          reject(new Error(mensagens[erro.code] || 'Erro desconhecido ao obter a localização.'));
         },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000
-        }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
       );
     });
   };
 
-  // Função para buscar pets por proximidade
   const buscarPetsProximos = async () => {
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-      
-      // Primeiro obtém a localização
-      const coords = await obterLocalizacao();
-      
-      // Depois busca os pets
-      const response = await axios.get(`${API_URL}/api/pets/proximidade`, {
-        params: {
-          lat: coords.lat,
-          lng: coords.lng,
-          raio: raio
-        }
+      const coords = localizacao || (await obterLocalizacao());
+
+      const response = await api.get('/api/pets/proximidade', {
+        params: { lat: coords.lat, lng: coords.lng, raio }
       });
-      
-      setPets(response.data);
-      console.log('Pets encontrados:', response.data);
-      
-    } catch (error) {
-      console.error('Erro ao buscar pets:', error);
-      setError(error.message);
+
+      setPets(Array.isArray(response.data) ? response.data : []);
+      setBuscou(true);
+    } catch (erro) {
+      setError(erro.response?.data?.message || erro.message);
+      setPets([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (_, newValue) => {
-    setRaio(newValue);
+  const atualizarLocalizacao = async () => {
+    setError(null);
+    try {
+      await obterLocalizacao();
+    } catch (erro) {
+      setError(erro.message);
+    }
   };
 
   return (
-    <Container
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        gap: 3,
-        py: 4
-      }}
-    >
-      <Typography variant="h4" component="h1" gutterBottom>
-        Buscar Pets por Região
-      </Typography>
-
-      <Typography variant="h6" component="h2" gutterBottom>
-        Encontre o pet ideal perto de você
-      </Typography>
-      
-      <Typography variant="body1" align="center" gutterBottom>
-        Use a barra de distância para ajustar o raio de busca e encontre pets disponíveis para adoção em sua região
-      </Typography>
-
-      {/* Mapa ilustrativo */}
-      <Box 
-        sx={{
-          width: 350,
-          height: 200,
-          overflow: 'hidden',
-          mb: 2,
-          borderRadius: 2,
-          border: '2px solid #ccc',
-        }}
-      >
-        <Box
-          component="img"
-          src="https://acontecendoaqui.com.br/wp-content/uploads/2015/11/maps.jpg"
-          alt="Mapa ilustrativo"
-          sx={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transform: `scale(${1 + raio / 320})`,
-            transition: 'transform 0.3s ease-in-out',
-          }}
-        />
+    <Container sx={{ py: 4 }}>
+      <Box sx={{ textAlign: 'center', mb: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Buscar Pets por Região
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Ajuste o raio de busca e encontre pets disponíveis para adoção perto de você.
+        </Typography>
       </Box>
 
-      {/* Controles de busca */}
-      <Box sx={{ width: 350, mb: 3 }}>
+      <Box sx={{ maxWidth: 520, mx: 'auto' }}>
+        {/* Mapa da área de busca */}
+        <Box
+          sx={{
+            height: 260,
+            mb: 3,
+            borderRadius: 2,
+            overflow: 'hidden',
+            border: '1px solid',
+            borderColor: 'divider'
+          }}
+        >
+          {localizacao ? (
+            <Box
+              component="iframe"
+              title="Área de busca"
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${calcularBbox(
+                localizacao.lat,
+                localizacao.lng,
+                raio
+              )}&layer=mapnik&marker=${localizacao.lat},${localizacao.lng}`}
+              sx={{ width: '100%', height: '100%', border: 0, display: 'block' }}
+            />
+          ) : (
+            <Box
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1,
+                bgcolor: 'grey.100',
+                px: 3,
+                textAlign: 'center'
+              }}
+            >
+              <MyLocationIcon color="disabled" fontSize="large" />
+              <Typography variant="body2" color="text.secondary">
+                O mapa aparece aqui depois que você permitir o acesso à sua localização.
+              </Typography>
+            </Box>
+          )}
+        </Box>
+
         <Typography gutterBottom>
           Raio de busca: <strong>{raio} km</strong>
         </Typography>
         <Slider
           marks={marks}
-          step={5}
+          step={1}
           value={raio}
           valueLabelDisplay="auto"
           min={MIN}
           max={MAX}
-          onChange={handleChange}
+          onChange={(_, valor) => setRaio(valor)}
         />
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography
-            variant="body2"
-            onClick={() => setRaio(MIN)}
-            sx={{ cursor: 'pointer' }}
+
+        <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 2 }}>
+          <Button
+            variant="contained"
+            onClick={buscarPetsProximos}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={18} color="inherit" /> : null}
           >
-            {MIN} km
-          </Typography>
-          <Typography
-            variant="body2"
-            onClick={() => setRaio(MAX)}
-            sx={{ cursor: 'pointer' }}
-          >
-            {MAX} km
-          </Typography>
-        </Box>
+            {loading ? 'Buscando...' : 'Buscar pets próximos'}
+          </Button>
+
+          {localizacao && (
+            <Button variant="text" onClick={atualizarLocalizacao} disabled={loading}>
+              Atualizar localização
+            </Button>
+          )}
+        </Stack>
+
+        {error && (
+          <Alert severity="error" sx={{ mt: 3 }}>
+            {error}
+          </Alert>
+        )}
       </Box>
 
-      {/* Botão de busca */}
-      <Stack direction="row" spacing={2}>
-        <Button 
-          variant="contained" 
-          onClick={buscarPetsProximos}
-          disabled={loading}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
-        >
-          {loading ? 'Buscando...' : 'Buscar Pets Próximos'}
-        </Button>
-      </Stack>
-
-      {/* Mensagens de erro */}
-      {error && (
-        <Alert severity="error" sx={{ width: '100%', maxWidth: 400 }}>
-          {error}
+      {buscou && !loading && !error && pets.length === 0 && (
+        <Alert severity="info" sx={{ mt: 4, maxWidth: 520, mx: 'auto' }}>
+          Nenhum pet encontrado num raio de {raio} km. Tente aumentar a distância.
         </Alert>
       )}
 
-      {/* Localização atual */}
-      {localizacao && (
-        <Alert severity="info" sx={{ width: '100%', maxWidth: 400 }}>
-          Localização: {localizacao.lat.toFixed(4)}, {localizacao.lng.toFixed(4)}
-        </Alert>
-      )}
-
-      {/* Resultados da busca */}
       {pets.length > 0 && (
-        <Box sx={{ width: '100%', mt: 4 }}>
+        <Box sx={{ mt: 5 }}>
           <Typography variant="h5" gutterBottom>
-            Pets encontrados ({pets.length})
+            {pets.length === 1 ? '1 pet encontrado' : `${pets.length} pets encontrados`}
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
-            {pets.map((pet) => (
-              <Box 
-                key={pet._id}
-                sx={{
-                  border: '1px solid #ddd',
-                  borderRadius: 2,
-                  p: 2,
-                  width: 200,
-                  textAlign: 'center'
-                }}
-              >
-                {pet.fotos && pet.fotos.length > 0 ? (
-                  <img 
-                    src={pet.fotos[0]} 
-                    alt={pet.nome}
-                    style={{
-                      width: '100%',
-                      height: 120,
-                      objectFit: 'cover',
-                      borderRadius: 8
-                    }}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: 120,
-                      bgcolor: 'grey.100',
-                      borderRadius: 8,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Typography variant="body2" color="grey.500">
-                      Sem imagem
-                    </Typography>
-                  </Box>
-                )}
-                
-                <Typography variant="h6" sx={{ mt: 1 }}>
-                  {pet.nome}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {pet.especie} • {pet.idade} anos
-                </Typography>
-                {pet.distancia && (
-                  <Typography variant="body2" color="primary" sx={{ mt: 1 }}>
-                    {pet.distancia} km de distância
-                  </Typography>
-                )}
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      )}
 
-      {pets.length === 0 && !loading && localizacao && (
-        <Alert severity="info" sx={{ width: '100%', maxWidth: 400 }}>
-          Nenhum pet encontrado no raio de {raio} km.
-        </Alert>
+          <Grid container spacing={3}>
+            {pets.map((pet) => (
+              <Grid item xs={12} sm={6} md={4} key={pet._id} sx={{ display: 'flex' }}>
+                <PetCard pet={pet} />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       )}
     </Container>
   );

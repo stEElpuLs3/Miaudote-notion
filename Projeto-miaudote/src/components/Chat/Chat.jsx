@@ -6,8 +6,7 @@ import {
   Badge, IconButton, Divider
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
-import axios from 'axios';
-import { API_URL } from '../../config';
+import api from '../../services/api';
 
 function Chat() {
   const [mensagens, setMensagens] = useState([]);
@@ -27,9 +26,9 @@ function Chat() {
 
   const fetchMensagens = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/mensagens/usuario/${user._id}`);
+      const response = await api.get(`/api/mensagens/usuario/${user._id}`);
       setMensagens(response.data);
-      
+
       // Extrair usuários únicos das conversas
       const usuariosUnicos = [];
       response.data.forEach(msg => {
@@ -48,7 +47,7 @@ function Chat() {
     if (!novaMensagem.trim() || !usuarioSelecionado) return;
 
     try {
-      const response = await axios.post(`${API_URL}/api/mensagens`, {
+      const response = await api.post(`/api/mensagens`, {
         remetente: user._id,
         destinatario: usuarioSelecionado._id,
         pet: petSelecionado?._id,
@@ -58,7 +57,7 @@ function Chat() {
 
       setMensagens(prev => [response.data.mensagem, ...prev]);
       setNovaMensagem('');
-      
+
       // Scroll para baixo
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     } catch (error) {
@@ -97,9 +96,9 @@ function Chat() {
                     {usuario.nome?.charAt(0)}
                   </Avatar>
                 </ListItemAvatar>
-                <ListItemText 
-                  primary={usuario.nome} 
-                  secondary={mensagens.find(m => 
+                <ListItemText
+                  primary={usuario.nome}
+                  secondary={mensagens.find(m =>
                     (m.remetente._id === usuario._id || m.destinatario._id === usuario._id) && !m.lida
                   ) && 'Nova mensagem'}
                 />

@@ -49,6 +49,7 @@ export default function PetCard({ pet }) {
     especie = 'Não informada',
     raca,
     idade,
+    distancia,
     user = {} // dados do dono
   } = pet;
 
@@ -108,8 +109,7 @@ export default function PetCard({ pet }) {
 
       // 3. E-mail é secundário — dispara sem travar o botão
       api.post('/api/email/interesse', {
-        petId: _id,
-        interessadoId: currentUserId
+        petId: _id
       })
         .then(() => console.log('✅ Email enviado'))
         .catch((emailError) => console.log('⚠️ Email não enviado:', emailError.message));
@@ -148,7 +148,7 @@ export default function PetCard({ pet }) {
           onError={(e) => { e.target.src = petPaws; }}
           sx={{ objectFit: 'cover' }}
         />
-        
+
         {/* BOTÃO FAVORITO NO CARD - POSIÇÃO 1 */}
         <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 10 }}>
           <FavoritoButton petId={_id} size="small" />
@@ -165,6 +165,11 @@ export default function PetCard({ pet }) {
             <Chip label={especie} size="small" variant="outlined" />
             {raca && <Chip label={raca} size="small" variant="outlined" sx={{ ml: 0.5 }} />}
           </Box>
+          {distancia != null && (
+            <Typography variant="body2" color="primary" sx={{ mt: 1 }}>
+              a {Number(distancia).toFixed(1)} km de você
+            </Typography>
+          )}
         </CardContent>
         <CardActions>
           <Button size="small" onClick={() => setOpenModal(true)}>
@@ -298,7 +303,7 @@ export default function PetCard({ pet }) {
                 <Typography variant="h6" gutterBottom>
                   Informações
                 </Typography>
-                
+
                 {/* BOTÃO FAVORITO NO MODAL - POSIÇÃO 2 */}
                 <FavoritoButton petId={_id} size="medium" />
               </Box>

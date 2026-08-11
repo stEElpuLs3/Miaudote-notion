@@ -3,8 +3,7 @@ import { Container, Typography, Box } from '@mui/material'; // Removido Grid2 n�
 import PetCard from '../components/PetCard/PetCard';
 import LoginModal from '../components/LoginModal/LoginModal'
 import Rufus from '../images/rufus.avif'
-import axios from 'axios';
-import { API_URL } from '../config';
+import api from '../services/api';
 
 function Home({ isOpenModal, setOpenModal }) {
   const [pets, setPets] = useState([]);
@@ -60,7 +59,7 @@ function Home({ isOpenModal, setOpenModal }) {
     const fetchPets = async () => {
       try {
         console.log('Fazendo requisição para API...');
-        const response = await axios.get(`${API_URL}/api/pets`);
+        const response = await api.get('/api/pets');
         console.log('Resposta da API:', response.data);
         setPets(response.data);
       } catch (error) {

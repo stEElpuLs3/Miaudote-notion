@@ -9,67 +9,86 @@ const { auth, authOptional } = require('../middleware/auth');
 
 const Pet = require('../models/Pet');
 
-// Rota de cadastro com geolocalização - CORRIGIDA
-router.post('/', auth, upload.array('images', 10), async (req, res) => {
+// Rota de cadastro com geolocalização
+router.post('/', auth, upload.array('images', 5), async (req, res) => {
   try {
     const { nome, especie, raca, idade, descricao, cep, rua, numero, bairro, cidade, estado } = req.body;
-    
-    console.log('=== DADOS RECEBIDOS NO CADASTRO ===');
-    console.log('Endereço:', { cep, rua, numero, bairro, cidade, estado });
-    
-    // Construir objeto de endereço
+
     const enderecoObj = {
-      cep: cep || '',
-      rua: rua || '',
-      numero: numero || '',
-      bairro: bairro || '',
-      cidade: cidade || '',
-      estado: estado || ''
+      cep: (cep || '').trim(),
+      rua: (rua || '').trim(),
+      numero: (numero || '').trim(),
+      bairro: (bairro || '').trim(),
+      cidade: (cidade || '').trim(),
+      estado: (estado || '').trim()
     };
 
-    console.log('Endereço completo:', enderecoObj);
+    // O cadastro exige CEP, cidade e estado; rua e numero sao opcionais por
+    // privacidade. Por isso a condicao NAO pode depender da rua — um pet sem
+    // rua ficaria sem coordenada e nunca apareceria na busca por proximidade.
+    const cepLimpo = enderecoObj.cep.replace(/\D/g, '');
+    const podeGeocodificar =
+      cepLimpo.length === 8 || Boolean(enderecoObj.cidade && enderecoObj.estado);
 
-    // Converter endereço para coordenadas
     let coordenadas = null;
-    if (enderecoObj.rua && enderecoObj.cidade) {
+
+    if (podeGeocodificar) {
       try {
-        console.log('Chamando geocoding service...');
         coordenadas = await geocodingService.geocodeEndereco(enderecoObj);
-        console.log('✅ Geocoding SUCESSO:', coordenadas);
       } catch (geocodeError) {
-        console.log('❌ Geocoding ERRO:', geocodeError.message);
+        console.log('Geocoding falhou:', geocodeError.message);
       }
-    } else {
-      console.log('❌ Dados de endereço insuficientes para geocoding');
     }
 
-    // Pegar URLs das imagens
+    // Ultimo recurso: centro do municipio. Melhor um pet na cidade certa
+    // do que um pet sem coordenada, invisivel na busca por proximidade.
+    if (!coordenadas && enderecoObj.cidade && enderecoObj.estado) {
+      coordenadas = await geocodingService.getCoordenadasAproximadas(
+        enderecoObj.cidade,
+        enderecoObj.estado
+      );
+      if (coordenadas) {
+        console.log('Geocoding aproximado: centro do municipio');
+      }
+    }
+
+    if (!coordenadas) {
+      console.log('Pet sem coordenada: nao aparecera na busca por proximidade');
+    }
+
     const imageUrls = await storage.saveFiles(req.files);
 
     const newPet = new Pet({
       nome,
       especie,
-      raca,
-      idade: idade || 0,
+      raca: raca || undefined,
+      idade: idade ? Number(idade) : undefined,
       descricao: descricao || '',
       user: req.user.id,
       fotos: imageUrls,
       endereco: enderecoObj,
       ...(coordenadas
         ? {
-            localizacao: {
-              type: 'Point',
-              coordinates: [coordenadas.lng, coordenadas.lat]
-            }
+          localizacao: {
+            type: 'Point',
+            coordinates: [coordenadas.lng, coordenadas.lat]
           }
+        }
         : {})
     });
 
     await newPet.save();
     res.status(201).json({ message: 'Pet cadastrado com sucesso!', pet: newPet });
   } catch (error) {
-    console.error('Erro ao cadastrar pet:', error);
-    res.status(500).json({ message: 'Erro ao cadastrar pet', error: error.message });
+    console.error('Erro ao cadastrar pet:', error.message);
+
+    // Campo obrigatorio faltando e erro do cliente, nao do servidor.
+    if (error.name === 'ValidationError') {
+      const campos = Object.keys(error.errors).join(', ');
+      return res.status(400).json({ message: `Dados inválidos: ${campos}` });
+    }
+
+    res.status(500).json({ message: 'Erro ao cadastrar pet' });
   }
 });
 
@@ -122,7 +141,7 @@ router.get('/proximidade', authOptional, async (req, res) => {
     res.json(petsComDistancia);
   } catch (error) {
     console.error('Erro ao buscar pets por proximidade:', error);
-    res.status(500).json({ message: 'Erro ao buscar pets', error });
+    res.status(500).json({ message: 'Erro ao buscar pets' });
   }
 });
 

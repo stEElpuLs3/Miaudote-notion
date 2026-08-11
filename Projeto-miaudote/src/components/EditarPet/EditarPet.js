@@ -6,8 +6,7 @@ import {
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import axios from 'axios';
-import { API_URL } from '../../config';
+import api from '../../services/api';
 
 function EditarPet({ open, onClose, pet, onPetUpdate }) {
   const [petData, setPetData] = useState({
@@ -49,7 +48,7 @@ function EditarPet({ open, onClose, pet, onPetUpdate }) {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setPetData(prev => ({
@@ -113,7 +112,7 @@ function EditarPet({ open, onClose, pet, onPetUpdate }) {
       formData.append('raca', petData.raca);
       formData.append('idade', petData.idade);
       formData.append('descricao', petData.descricao);
-      
+
       // Campos de endereço individuais
       formData.append('cep', petData.endereco.cep);
       formData.append('rua', petData.endereco.rua);
@@ -131,13 +130,13 @@ function EditarPet({ open, onClose, pet, onPetUpdate }) {
       const imagesToRemove = imagePreviews
         .filter(preview => preview.markedForDelete)
         .map((preview, index) => index);
-      
+
       if (imagesToRemove.length > 0) {
         formData.append('imagesToRemove', JSON.stringify(imagesToRemove));
       }
 
-      const response = await axios.put(
-        `${API_URL}/api/pets/${pet._id}`,
+      const response = await api.put(
+        `/api/pets/${pet._id}`,
         formData,
         {
           headers: {

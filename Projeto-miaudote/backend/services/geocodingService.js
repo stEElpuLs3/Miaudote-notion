@@ -1,16 +1,52 @@
 const axios = require('axios');
 
+// Remove acentos e padroniza para comparar nomes de cidade
+function normalizar(texto) {
+  return String(texto || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 class GeocodingService {
   constructor() {
     this.nominatimUrl = 'https://nominatim.openstreetmap.org/search';
   }
 
+  // Monta o endereço usando só as partes que existem.
+  // Rua e numero sao opcionais no cadastro de pet, entao nunca podem
+  // entrar na string como "undefined".
+  montarEndereco(endereco) {
+    const { rua, numero, bairro, cidade, estado, cep } = endereco || {};
+    const partes = [];
+
+    if (rua && numero) partes.push(`${rua}, ${numero}`);
+    else if (rua) partes.push(rua);
+
+    if (bairro) partes.push(bairro);
+    if (cidade) partes.push(cidade);
+    if (estado) partes.push(estado);
+
+    // O CEP e o campo mais preciso disponivel e e obrigatorio no cadastro.
+    const cepLimpo = String(cep || '').replace(/\D/g, '');
+    if (cepLimpo.length === 8) partes.push(cepLimpo);
+
+    partes.push('Brasil');
+    return partes.join(', ');
+  }
+
   // Converter endereço em coordenadas usando OpenStreetMap (GRATUITO)
   async geocodeEndereco(endereco) {
+    if (!endereco) {
+      console.log('❌ Geocoding chamado sem endereço');
+      return null;
+    }
+
+    const { cidade, estado } = endereco;
+    const enderecoCompleto = this.montarEndereco(endereco);
+
     try {
-      const { rua, numero, cidade, estado, cep } = endereco;
-      const enderecoCompleto = `${rua} ${numero}, ${cidade}, ${estado}, Brasil`;
-      
       console.log('🟡 Buscando coordenadas no OpenStreetMap para:', enderecoCompleto);
 
       const response = await axios.get(this.nominatimUrl, {
@@ -18,14 +54,14 @@ class GeocodingService {
           q: enderecoCompleto,
           format: 'json',
           limit: 1,
-          addressdetails: 1
+          addressdetails: 1,
+          countrycodes: 'br'
         },
         headers: {
           'User-Agent': 'MiaudoteApp/1.0 (vitor@miaudote.com)'
-        }
+        },
+        timeout: 10000
       });
-
-      console.log('🔵 Resposta OpenStreetMap:', response.data);
 
       if (response.data && response.data.length > 0) {
         const location = response.data[0];
@@ -34,15 +70,13 @@ class GeocodingService {
           lat: parseFloat(location.lat),
           lng: parseFloat(location.lon)
         };
-      } else {
-        console.log('❌ Endereço não encontrado no OpenStreetMap');
-        // Fallback: retorna coordenadas aproximadas da cidade
-        return this.getCoordenadasAproximadas(cidade, estado);
       }
+
+      console.log('❌ Endereço não encontrado no OpenStreetMap:', enderecoCompleto);
+      return this.getCoordenadasAproximadas(cidade, estado);
     } catch (error) {
-      console.error('🔴 Erro no geocoding OpenStreetMap:', error);
-      // Fallback em caso de erro
-      return this.getCoordenadasAproximadas(endereco.cidade, endereco.estado);
+      console.error('🔴 Erro no geocoding OpenStreetMap:', error.message);
+      return this.getCoordenadasAproximadas(cidade, estado);
     }
   }
 
@@ -65,31 +99,35 @@ class GeocodingService {
 
     // Nunca usar uma cidade aleatoria como fallback: um endereco de Cariacica
     // virando Sao Paulo geraria ~900 km de erro na busca por proximidade.
-    if (cidade && cidade in coordenadasCidades) {
-      console.log('Usando coordenadas aproximadas de:', cidade);
-      return coordenadasCidades[cidade];
+    const alvo = normalizar(cidade);
+    const encontrada = Object.keys(coordenadasCidades).find(
+      (nome) => normalizar(nome) === alvo
+    );
+
+    if (encontrada) {
+      console.log('📍 Usando coordenadas aproximadas de:', encontrada);
+      return coordenadasCidades[encontrada];
     }
 
-    console.log('Sem coordenada aproximada conhecida para:', cidade, estado);
+    console.log('❌ Sem coordenada aproximada conhecida para:', cidade, estado);
     return null;
   }
 
-  // Calcular distância entre dois pontos (em km) - MANTIDO
+  // Calcular distância entre dois pontos (em km) — haversine, RNF07
   calcularDistancia(lat1, lon1, lat2, lon2) {
     const R = 6371; // Raio da Terra em km
     const dLat = this.deg2rad(lat2 - lat1);
     const dLon = this.deg2rad(lon2 - lon1);
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2); 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-    const distancia = R * c;
-    return distancia;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   deg2rad(deg) {
-    return deg * (Math.PI/180);
+    return deg * (Math.PI / 180);
   }
 }
 
