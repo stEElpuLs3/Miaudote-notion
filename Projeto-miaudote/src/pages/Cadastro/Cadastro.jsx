@@ -16,6 +16,7 @@ import {
   validarTelefone,
   mascaraTelefone,
   validarFormulario,
+  somenteNumeros,
 } from '../../utils/validacoes';
 
 const REGRAS = {
@@ -73,7 +74,7 @@ const Cadastro = () => {
         nome: valores.nome.trim(),
         email: valores.email.trim().toLowerCase(),
         senha: valores.senha,
-        telefone: valores.telefone,
+        telefone: somenteNumeros(valores.telefone),
         avatar: valores.avatar.trim(),
       });
 
