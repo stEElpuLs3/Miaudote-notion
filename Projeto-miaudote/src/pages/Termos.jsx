@@ -14,7 +14,7 @@ import {
     TableRow,
 } from '@mui/material';
 
-const EMAIL_CONTATO = 'contato.miaudote@gmail.com';
+const EMAIL_CONTATO = 'suporte.miaudote@gmail.com';
 const ATUALIZADO_EM = '11 de agosto de 2026';
 
 function Titulo({ children }) {

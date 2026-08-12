@@ -38,7 +38,7 @@ export default function Footer() {
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="caption" color="text.secondary">
                     Projeto acadêmico sem fins lucrativos — Atividade Extensionista do curso de Engenharia de
-                    Software do Centro Universitário UNINTER. Contato: contato.miaudote@gmail.com
+                    Software do Centro Universitário UNINTER. Contato: suporte.miaudote@gmail.com
                 </Typography>
             </Container>
         </Box>
