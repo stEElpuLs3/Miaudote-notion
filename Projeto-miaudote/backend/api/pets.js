@@ -5,12 +5,12 @@ const upload = require('../middleware/upload'); // Importar multer
 const geocodingService = require('../services/geocodingService'); 
 
 const storage = require('../services/storageService');
-const { auth, authOptional } = require('../middleware/auth');
+const { auth, authOptional, exigirEmailConfirmado } = require('../middleware/auth');
 
 const Pet = require('../models/Pet');
 
 // Rota de cadastro com geolocalização
-router.post('/', auth, upload.array('images', 5), async (req, res) => {
+router.post('/', auth, exigirEmailConfirmado, upload.array('images', 5), async (req, res) => {
   try {
     const { nome, especie, raca, idade, descricao, cep, rua, numero, bairro, cidade, estado } = req.body;
 

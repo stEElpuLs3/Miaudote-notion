@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import ConfirmarEmail from './pages/ConfirmarEmail';
+import EsqueciSenha from './pages/EsqueciSenha';
+import RedefinirSenha from './pages/RedefinirSenha';
 import Termos from './pages/Termos';
 import Footer from './components/Footer/Footer';
+import AvisoEmail from './components/AvisoEmail/AvisoEmail';
 import { CssBaseline, Box, Container, Typography } from '@mui/material';
 import Home from './pages/Home';
 import Profile from './pages/Profile';
@@ -34,6 +38,7 @@ function App() {
       <NavBar isOpenModal={isOpenModal} setOpenModal={setOpenModal} />
       <LoginModal open={isOpenModal} onClose={() => setOpenModal(false)} />
       <Box component="main" sx={{ p: 3, mt: 8 }}>
+        <AvisoEmail />
         <Routes>
           <Route
             path="/"
@@ -48,6 +53,9 @@ function App() {
           <Route path="/favoritos" element={<Favoritos />} />
           <Route path="/mensagens" element={<Mensagens />} />
           <Route path="/termos" element={<Termos />} />
+          <Route path="/confirmar-email" element={<ConfirmarEmail />} />
+          <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+          <Route path="/redefinir-senha" element={<RedefinirSenha />} />
           <Route
             path="*"
             element={
@@ -58,6 +66,8 @@ function App() {
           />
         </Routes>
         <Footer />
+        <SpeedInsights />
+        <Analytics />
       </Box>
     </Router>
   );

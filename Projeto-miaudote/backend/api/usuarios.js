@@ -10,6 +10,21 @@ require('dotenv').config();
 const router = express.Router();
 
 const User = require('../models/User');
+const crypto = require('crypto');
+const emailService = require('../services/emailService');
+
+// Gera um codigo aleatorio em duas versoes: a crua vai no link do e-mail,
+// a embaralhada vai para o banco. Se o banco vazar, os codigos guardados
+// nao servem para nada, porque nao da para voltar do embaralhado ao cru.
+function gerarToken() {
+  const cru = crypto.randomBytes(32).toString('hex');
+  const embaralhado = crypto.createHash('sha256').update(cru).digest('hex');
+  return { cru, embaralhado };
+}
+
+function embaralhar(token) {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+}
 
 // Rota de cadastro
 router.post('/register', async (req, res) => {
@@ -30,12 +45,25 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(senha, 10);
 
     // Criação do usuário
-    const newUser = new User({ nome, telefone, email, senha: hashedPassword });
+    const { cru, embaralhado } = gerarToken();
+
+    const newUser = new User({
+      nome,
+      telefone,
+      email,
+      senha: hashedPassword,
+      emailConfirmado: false,
+      tokenConfirmacao: embaralhado,
+      tokenConfirmacaoExpira: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
     await newUser.save();
 
-    res.status(201).json({ message: "Usuário criado com sucesso" });
+    emailService.enviarEmailConfirmacao(newUser, cru)
+      .catch((e) => console.error('Erro ao enviar email de confirmacao:', e.message));
+
+    res.status(201).json({ message: "Usuário criado com sucesso. Confira seu e-mail para confirmar a conta." });
   } catch (error) {
-    res.status(500).json({ message: "Erro ao criar usuário", error });
+    res.status(500).json({ message: "Erro ao criar usuário" });
   }
 });
 
@@ -82,7 +110,8 @@ router.post('/login', async (req, res) => {
         redeSocial: user.redeSocial,
         endereco: user.endereco,
         sobre: user.sobre,
-        favoritos: user.favoritos
+        favoritos: user.favoritos,
+        emailConfirmado: user.emailConfirmado === true
       }
     });
   } catch (error) {
@@ -215,6 +244,121 @@ router.put('/:id', auth, requireSelf('id'), upload.single('avatar'), async (req,
   } catch (error) {
     console.error('Erro ao atualizar usuário:', error.message);
     res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
+  }
+});
+
+// --- Confirmacao de e-mail ---
+
+router.post('/confirmar-email', async (req, res) => {
+  const { token } = req.body || {};
+  try {
+    if (!token) return res.status(400).json({ message: 'Link invalido.' });
+
+    const user = await User.findOne({
+      tokenConfirmacao: embaralhar(token),
+      tokenConfirmacaoExpira: { $gt: new Date() }
+    }).select('+tokenConfirmacao +tokenConfirmacaoExpira');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Link invalido ou expirado. Peca um novo e-mail de confirmacao.' });
+    }
+
+    user.emailConfirmado = true;
+    user.tokenConfirmacao = null;
+    user.tokenConfirmacaoExpira = null;
+    await user.save();
+
+    res.json({ message: 'E-mail confirmado com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao confirmar email:', error.message);
+    res.status(500).json({ message: 'Erro ao confirmar e-mail' });
+  }
+});
+
+router.post('/reenviar-confirmacao', async (req, res) => {
+  const { email } = req.body || {};
+  const respostaPadrao = {
+    message: 'Se houver uma conta pendente com esse endereco, enviamos um novo e-mail.'
+  };
+
+  try {
+    if (!email) return res.status(400).json({ message: 'Informe o e-mail.' });
+
+    const user = await User.findOne({ email });
+    if (!user || user.emailConfirmado) return res.json(respostaPadrao);
+
+    const { cru, embaralhado } = gerarToken();
+    user.tokenConfirmacao = embaralhado;
+    user.tokenConfirmacaoExpira = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await user.save();
+
+    emailService.enviarEmailConfirmacao(user, cru)
+      .catch((e) => console.error('Erro ao reenviar confirmacao:', e.message));
+
+    res.json(respostaPadrao);
+  } catch (error) {
+    console.error('Erro ao reenviar confirmacao:', error.message);
+    res.status(500).json({ message: 'Erro ao reenviar confirmacao' });
+  }
+});
+
+// --- Recuperacao de senha ---
+
+router.post('/esqueci-senha', async (req, res) => {
+  const { email } = req.body || {};
+  const respostaPadrao = {
+    message: 'Se houver uma conta com esse endereco, enviamos um link para redefinir a senha.'
+  };
+
+  try {
+    if (!email) return res.status(400).json({ message: 'Informe o e-mail.' });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.json(respostaPadrao);
+
+    const { cru, embaralhado } = gerarToken();
+    user.tokenResetSenha = embaralhado;
+    user.tokenResetSenhaExpira = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    emailService.enviarEmailRecuperacaoSenha(user, cru)
+      .catch((e) => console.error('Erro ao enviar recuperacao:', e.message));
+
+    res.json(respostaPadrao);
+  } catch (error) {
+    console.error('Erro ao pedir recuperacao:', error.message);
+    res.status(500).json({ message: 'Erro ao processar o pedido' });
+  }
+});
+
+router.post('/redefinir-senha', async (req, res) => {
+  const { token, senha } = req.body || {};
+  try {
+    if (!token || !senha || senha.length < 6) {
+      return res.status(400).json({ message: 'Informe uma senha com no minimo 6 caracteres.' });
+    }
+
+    const user = await User.findOne({
+      tokenResetSenha: embaralhar(token),
+      tokenResetSenhaExpira: { $gt: new Date() }
+    }).select('+tokenResetSenha +tokenResetSenhaExpira');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Link invalido ou expirado. Peca um novo.' });
+    }
+
+    user.senha = await bcrypt.hash(senha, 10);
+    user.tokenResetSenha = null;
+    user.tokenResetSenhaExpira = null;
+    // Quem redefiniu a senha provou que tem acesso ao e-mail, entao ja vale
+    // como confirmacao. Evita pedir duas provas da mesma coisa.
+    user.emailConfirmado = true;
+    await user.save();
+
+    res.json({ message: 'Senha alterada com sucesso! Voce ja pode entrar.' });
+  } catch (error) {
+    console.error('Erro ao redefinir senha:', error.message);
+    res.status(500).json({ message: 'Erro ao redefinir senha' });
   }
 });
 

@@ -5,10 +5,10 @@ const Mensagem = require('../models/Mensagem');
 const emailService = require('../services/emailService');
 const User = require('../models/User');
 const Pet = require('../models/Pet');
-const { auth, requireSelf } = require('../middleware/auth');
+const { auth, requireSelf, exigirEmailConfirmado } = require('../middleware/auth');
 
 // Enviar mensagem (o remetente vem do token, nunca do corpo da requisicao)
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, exigirEmailConfirmado, async (req, res) => {
   try {
     const { destinatario, pet, mensagem, tipo } = req.body;
     const remetente = req.user.id;

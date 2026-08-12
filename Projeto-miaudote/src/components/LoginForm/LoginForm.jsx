@@ -66,6 +66,7 @@ export default function LoginForm({ onClose, closeModal }) {
           socialMedia: response.data.user.redeSocial || {},
           address: response.data.user.endereco || {},
           about: response.data.user.sobre || "",
+            emailConfirmado: response.data.user.emailConfirmado === true,
         };
 
         localStorage.setItem("user", JSON.stringify(userData));
@@ -136,6 +137,21 @@ export default function LoginForm({ onClose, closeModal }) {
         </Button>
 
         <Typography variant="body2" textAlign="center">
+            <Link
+              component={RouterLink}
+              to="/esqueci-senha"
+              onClick={fechar}
+              sx={{
+                cursor: "pointer",
+                textDecoration: "none",
+                "&:hover": { textDecoration: "underline" },
+              }}
+            >
+              Esqueci minha senha
+            </Link>
+          </Typography>
+
+          <Typography variant="body2" textAlign="center">
           Não tem uma conta?{" "}
           <Link
             component={RouterLink}

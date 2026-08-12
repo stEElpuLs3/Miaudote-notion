@@ -67,6 +67,8 @@ const limiteCadastro = rateLimit({
 const usuariosRouter = require('./api/usuarios');
 app.use('/api/usuarios/login', limiteLogin);
 app.use('/api/usuarios/register', limiteCadastro);
+app.use('/api/usuarios/esqueci-senha', limiteCadastro);
+app.use('/api/usuarios/reenviar-confirmacao', limiteCadastro);
 app.use('/api/usuarios', usuariosRouter);
 
 const petsRouter = require('./api/pets');

@@ -11,8 +11,6 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
-    "@vercel/analytics": "^2.0.1",
-    "@vercel/speed-insights": "^2.0.0",
     "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.5.1",

@@ -2,6 +2,7 @@
 // Verificacao real do token JWT. Sem isso, qualquer pessoa poderia editar
 // ou apagar pets e perfis de outros usuarios.
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
 function getSecret() {
   const secret = process.env.JWT_SECRET;
@@ -62,4 +63,33 @@ function requireSelf(param) {
   };
 }
 
-module.exports = { auth, authOptional, requireSelf, getSecret };
+// Porteiro extra: roda depois do auth e exige o e-mail confirmado.
+// Consulta o banco de proposito. O token foi emitido no login e nao sabe
+// de nada que aconteceu depois; consultando o banco, quem confirma o e-mail
+// passa a poder publicar na hora, sem sair e entrar de novo.
+async function exigirEmailConfirmado(req, res, next) {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Faca login para continuar.' });
+    }
+
+    const usuario = await User.findById(req.user.id).select('emailConfirmado');
+    if (!usuario) {
+      return res.status(401).json({ message: 'Conta nao encontrada.' });
+    }
+
+    if (usuario.emailConfirmado !== true) {
+      return res.status(403).json({
+        message: 'Confirme seu e-mail para publicar pets e enviar mensagens.',
+        emailNaoConfirmado: true
+      });
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Erro ao verificar confirmacao de email:', error.message);
+    return res.status(500).json({ message: 'Erro ao verificar a conta' });
+  }
+}
+
+module.exports = { auth, authOptional, requireSelf, getSecret, exigirEmailConfirmado };
