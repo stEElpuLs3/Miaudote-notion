@@ -185,7 +185,14 @@ function RegisterPet() {
     } catch (error) {
       const mensagem =
         error.response?.data?.message || error.message || 'Erro desconhecido';
-      alert('Erro ao cadastrar pet: ' + mensagem);
+      if (error.response?.data?.emailNaoConfirmado) {
+        alert(
+          mensagem +
+          '\n\nAbra o e-mail que enviamos no cadastro e clique no link de confirmação. Se não encontrar, use o botão "Reenviar" na faixa amarela no topo do site.'
+        );
+      } else {
+        alert('Erro ao cadastrar pet: ' + mensagem);
+      }
     } finally {
       setEnviando(false);
     }

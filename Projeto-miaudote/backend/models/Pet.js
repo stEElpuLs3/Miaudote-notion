@@ -46,8 +46,8 @@ const PetSchema = new mongoose.Schema(
 
     endereco: {
       cep: String,
-      rua: String,
-      numero: String,
+      rua: { type: String, select: false },
+      numero: { type: String, select: false },
       bairro: String,
       cidade: String,
       estado: String
