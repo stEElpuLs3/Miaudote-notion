@@ -164,3 +164,81 @@ exports.enviarEmailNovaMensagem = async (destinatario, remetente, pet) => {
     throw error;
   }
 };
+
+// Email de confirmacao de cadastro
+exports.enviarEmailConfirmacao = async (usuario, token) => {
+  try {
+    const link = FRONTEND_URL + '/confirmar-email?token=' + token;
+    const mailOptions = {
+      from: `Miaudote <${process.env.EMAIL_USER}>`,
+      to: usuario.email,
+      subject: 'Confirme seu e-mail no Miaudote',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1976d2;">Bem-vindo ao Miaudote! 🐾</h2>
+          <p>Olá, ${usuario.nome}!</p>
+          <p>Falta um passo para sua conta ficar completa. Clique no botão abaixo para confirmar que este endereço é seu:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${link}" style="background: #1976d2; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Confirmar meu e-mail</a>
+          </div>
+          <p style="color: #666; font-size: 14px;">Se o botão não funcionar, copie este endereço e cole no navegador:</p>
+          <p style="color: #666; font-size: 12px; word-break: break-all;">${link}</p>
+          <div style="background: #fff3e0; padding: 15px; border-radius: 8px; margin-top: 20px;">
+            <p style="margin: 0; font-size: 14px;">Este link vale por 24 horas. Depois disso, peça um novo pelo seu perfil no site.</p>
+          </div>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            <p style="color: #666; font-size: 14px;">
+              Se você não criou conta no Miaudote, pode ignorar este e-mail.<br>
+              Equipe Miaudote 🐕🐈
+            </p>
+          </div>
+        </div>
+      `
+    };
+    const result = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de confirmacao enviado');
+    return result;
+  } catch (error) {
+    console.error('❌ Erro ao enviar email de confirmacao:', error.message);
+    throw error;
+  }
+};
+
+// Email de recuperacao de senha
+exports.enviarEmailRecuperacaoSenha = async (usuario, token) => {
+  try {
+    const link = FRONTEND_URL + '/redefinir-senha?token=' + token;
+    const mailOptions = {
+      from: `Miaudote <${process.env.EMAIL_USER}>`,
+      to: usuario.email,
+      subject: 'Redefinir sua senha no Miaudote',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1976d2;">Redefinir senha 🔑</h2>
+          <p>Olá, ${usuario.nome}!</p>
+          <p>Recebemos um pedido para criar uma senha nova na sua conta do Miaudote. Clique no botão abaixo para escolher a nova senha:</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${link}" style="background: #1976d2; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">Criar nova senha</a>
+          </div>
+          <p style="color: #666; font-size: 14px;">Se o botão não funcionar, copie este endereço e cole no navegador:</p>
+          <p style="color: #666; font-size: 12px; word-break: break-all;">${link}</p>
+          <div style="background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 20px;">
+            <p style="margin: 0; font-size: 14px;"><strong>Este link vale por 1 hora.</strong> Se não foi você que pediu, ignore este e-mail: sua senha atual continua valendo e ninguém consegue entrar sem ela.</p>
+          </div>
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
+            <p style="color: #666; font-size: 14px;">
+              Atenciosamente,<br>
+              Equipe Miaudote 🐕🐈
+            </p>
+          </div>
+        </div>
+      `
+    };
+    const result = await transporter.sendMail(mailOptions);
+    console.log('✅ Email de recuperacao enviado');
+    return result;
+  } catch (error) {
+    console.error('❌ Erro ao enviar email de recuperacao:', error.message);
+    throw error;
+  }
+};

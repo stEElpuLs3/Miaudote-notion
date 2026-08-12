@@ -16,6 +16,8 @@ import Mensagens from './pages/Mensagens';
 import { UserClass } from './UserClass';
 import './styles.css';
 import './App.css';
+import { SpeedInsights } from "@vercel/speed-insights/react"
+import { Analytics } from "@vercel/analytics/react"
 
 function App() {
   const LogOut = () => {
