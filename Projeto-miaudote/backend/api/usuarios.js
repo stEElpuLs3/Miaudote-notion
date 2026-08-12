@@ -43,12 +43,12 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, senha } = req.body;
 
-  console.log('Tentativa de login:', { email }); // ← Log para debug
+  console.log('Tentativa de login:'); // ← Log para debug
 
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      console.log('Usuário não encontrado:', email);
+      console.log('Usuário não encontrado:');
       return res.status(404).json({ message: "Usuário não encontrado" });
     }
 
@@ -57,11 +57,11 @@ router.post('/login', async (req, res) => {
     // Verifica senha
     const validPassword = await bcrypt.compare(senha, user.senha);
     if (!validPassword) {
-      console.log('Senha incorreta para:', email);
+      console.log('Senha incorreta para:');
       return res.status(401).json({ message: "Senha incorreta" });
     }
 
-    console.log('Login bem-sucedido para:', email);
+    console.log('Login bem-sucedido para:');
 
     // Geração do token
     const token = jwt.sign(
@@ -70,12 +70,12 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
-    res.status(200).json({ 
-      message: "Login realizado com sucesso", 
-      token, 
-      user: { 
+    res.status(200).json({
+      message: "Login realizado com sucesso",
+      token,
+      user: {
         id: user._id,
-        nome: user.nome, 
+        nome: user.nome,
         email: user.email,
         telefone: user.telefone,
         avatar: user.avatar, // ← ADICIONADO AQUI
@@ -83,13 +83,13 @@ router.post('/login', async (req, res) => {
         endereco: user.endereco,
         sobre: user.sobre,
         favoritos: user.favoritos
-      } 
+      }
     });
   } catch (error) {
-    console.error('Erro completo no login:', error);
-    res.status(500).json({ 
-      message: "Erro no login", 
-      error: error.message 
+    console.error('Erro no login:', error.message);
+    res.status(500).json({
+      message: "Erro no login",
+      error: error.message
     });
   }
 });
@@ -98,31 +98,31 @@ router.post('/login', async (req, res) => {
 router.put('/:id/avatar', auth, requireSelf('id'), upload.single('avatar'), async (req, res) => {
   try {
     const userId = req.params.id;
-    
+
     if (!req.file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Nenhuma imagem enviada' 
+      return res.status(400).json({
+        success: false,
+        message: 'Nenhuma imagem enviada'
       });
     }
-    
+
     // URL da imagem
     const avatarUrl = await storage.saveFile(req.file);
-    
+
     // Atualizar apenas o campo avatar
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { avatar: avatarUrl },
       { new: true, select: '-senha' } // Não retornar a senha
     );
-    
+
     if (!updatedUser) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Usuário não encontrado' 
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado'
       });
     }
-    
+
     res.status(200).json({
       success: true,
       message: 'Avatar atualizado com sucesso!',
@@ -135,11 +135,11 @@ router.put('/:id/avatar', auth, requireSelf('id'), upload.single('avatar'), asyn
       }
     });
   } catch (error) {
-    console.error('Erro ao atualizar avatar:', error);
-    res.status(500).json({ 
+    console.error('Erro ao atualizar avatar:', error.message);
+    res.status(500).json({
       success: false,
-      message: 'Erro ao atualizar avatar', 
-      error: error.message 
+      message: 'Erro ao atualizar avatar',
+      error: error.message
     });
   }
 });
@@ -147,19 +147,19 @@ router.put('/:id/avatar', auth, requireSelf('id'), upload.single('avatar'), asyn
 // Rota para atualizar usuário
 router.put('/:id', auth, requireSelf('id'), upload.single('avatar'), async (req, res) => {
   try {
-    const { 
-      nome, 
-      telefone, 
+    const {
+      nome,
+      telefone,
       sobre,
-      redeSocialPlataforma, 
+      redeSocialPlataforma,
       redeSocialUsuario,
       enderecoCep,
-      enderecoRua, 
+      enderecoRua,
       enderecoNumero,
       enderecoCidade,
       enderecoEstado
     } = req.body;
-    
+
     const updateData = {
       nome,
       telefone,
@@ -199,7 +199,7 @@ router.put('/:id', auth, requireSelf('id'), upload.single('avatar'), async (req,
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
 
-    res.json({ 
+    res.json({
       message: 'Perfil atualizado com sucesso!',
       user: {
         id: user._id,
@@ -213,7 +213,7 @@ router.put('/:id', auth, requireSelf('id'), upload.single('avatar'), async (req,
       }
     });
   } catch (error) {
-    console.error('Erro ao atualizar usuário:', error);
+    console.error('Erro ao atualizar usuário:', error.message);
     res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
   }
 });

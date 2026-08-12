@@ -111,10 +111,10 @@ exports.enviarEmailInteresse = async (donoPet, interessado, pet) => {
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Email real enviado para:', donoPet.email);
+    console.log('✅ Email real enviado');
     return result;
   } catch (error) {
-    console.error('❌ Erro ao enviar email real:', error);
+    console.error('❌ Erro ao enviar email real:', error.message);
     throw error;
   }
 };
@@ -157,10 +157,10 @@ exports.enviarEmailNovaMensagem = async (destinatario, remetente, pet) => {
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de mensagem enviado para:', destinatario.email);
+    console.log('✅ Email de mensagem enviado');
     return result;
   } catch (error) {
-    console.error('❌ Erro ao enviar email de mensagem:', error);
+    console.error('❌ Erro ao enviar email de mensagem:', error.message);
     throw error;
   }
 };

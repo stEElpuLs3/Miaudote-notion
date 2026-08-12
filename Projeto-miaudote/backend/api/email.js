@@ -36,7 +36,7 @@ router.post('/interesse', auth, async (req, res) => {
       enviadoPara: donoPet.email
     });
   } catch (error) {
-    console.error('Erro ao enviar email de interesse:', error);
+    console.error('Erro ao enviar email de interesse:', error.message);
     res.status(500).json({ message: 'Erro ao enviar notificacao', error: error.message });
   }
 });
