@@ -388,25 +388,36 @@ export default function PetCard({ pet }) {
               Enviar Mensagem
             </Button>
 
-            {/* Contato Direto */}
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<PhoneIcon />}
-              onClick={() => window.open(`tel:${user?.telefone}`)}
-              disabled={!user?.telefone}
-            >
-              Ligar: {user?.telefone || 'Não informado'}
-            </Button>
+            {/* Contato Direto — só aparece quando o dado realmente veio */}
+            {user?.telefone && (
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<PhoneIcon />}
+                onClick={() => window.open(`tel:${user.telefone}`)}
+              >
+                Ligar: {user.telefone}
+              </Button>
+            )}
 
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={<EmailIcon />}
-              onClick={() => window.open(`mailto:${user?.email}`)}
-            >
-              Email: {user?.email}
-            </Button>
+            {user?.email && (
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<EmailIcon />}
+                onClick={() => window.open(`mailto:${user.email}`)}
+              >
+                Email: {user.email}
+              </Button>
+            )}
+
+            {!user?.telefone && !user?.email && (
+              <Alert severity="info" sx={{ mt: 1 }}>
+                {currentUserId
+                  ? 'Este responsável não cadastrou telefone nem e-mail. Use o botão Enviar Mensagem acima — ele recebe um aviso na caixa de entrada.'
+                  : 'Entre na sua conta para ver o telefone e o e-mail do responsável. Escondemos esses dados de quem não está logado para proteger quem anuncia.'}
+              </Alert>
+            )}
           </Box>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>

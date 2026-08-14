@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 
 const EMAIL_CONTATO = 'suporte.miaudote@gmail.com';
-const ATUALIZADO_EM = '11 de agosto de 2026';
+const ATUALIZADO_EM = '14 de agosto de 2026';
 
 function Titulo({ children }) {
     return (
@@ -144,6 +144,20 @@ export default function Termos() {
                         ]}
                     />
                     <P>Anúncios e contas que descumprirem estas regras podem ser removidos sem aviso.</P>
+                    <P>
+                        <strong>Como denunciar:</strong> se você encontrar anúncio falso, cobrança pela adoção,
+                        uso de foto de terceiros ou suspeita de maus-tratos, use o link{' '}
+                        <strong>Denunciar um anúncio</strong> no rodapé de qualquer página, ou escreva para{' '}
+                        <strong>suporte.miaudote@gmail.com</strong> informando o link do anúncio. Toda denúncia
+                        é analisada e pode resultar na remoção do anúncio ou da conta. Sua identidade não é
+                        revelada a quem foi denunciado.
+                    </P>
+                    <P>
+                        O Miaudote é um projeto acadêmico sem equipe de plantão. O prazo para analisar uma
+                        denúncia é de <strong>até 7 dias</strong>. Se houver maus-tratos, abandono ou crueldade{' '}
+                        <strong>acontecendo agora</strong>, não espere nossa resposta: acione a Polícia Militar
+                        pelo <strong>190</strong>, que atende 24 horas.
+                    </P>
                 </Secao>
 
                 <Secao numero={5} titulo="Conteúdo que você publica">
