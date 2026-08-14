@@ -1,7 +1,7 @@
 // Service worker do Miaudote.
 // Troque a versão abaixo sempre que quiser forçar todos os navegadores a
 // descartar o cache antigo.
-const VERSAO = 'miaudote-v1';
+const VERSAO = 'miaudote-v2';
 
 const ESSENCIAIS = [
     '/',
