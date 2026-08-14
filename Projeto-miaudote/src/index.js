@@ -14,3 +14,10 @@ root.render(
 );
 
 reportWebVitals();
+if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((erro) => {
+      console.log('Service worker nao registrado:', erro.message);
+    });
+  });
+}
