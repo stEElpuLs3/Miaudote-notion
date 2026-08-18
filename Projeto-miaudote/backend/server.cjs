@@ -102,14 +102,21 @@ app.use((error, req, res, next) => {
 });
 
 // Conexao com o MongoDB Atlas
-if (process.env.MONGODB_URI) {
+if (process.env.MONGODB_URI && process.env.NODE_ENV !== 'test') {
   mongoose
     .connect(process.env.MONGODB_URI)
-    .then(() => console.log('\u2705 Conectado ao MongoDB'))
-    .catch((err) => console.error('\u274c Erro ao conectar:', err.message));
+    .then(() => console.log('✅ Conectado ao MongoDB'))
+    .catch((err) => console.error('❌ Erro ao conectar:', err.message));
 }
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log('\ud83d\ude80 Servidor rodando na porta ' + PORT));
+
+// Só sobe a porta quando o arquivo é executado direto (node server.cjs),
+// nunca quando é importado por um teste.
+if (require.main === module) {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => console.log('🚀 Servidor rodando na porta ' + PORT));
+}
+
+module.exports = app;
 
 module.exports = app;
