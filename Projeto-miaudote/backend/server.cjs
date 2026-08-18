@@ -65,10 +65,15 @@ const limiteCadastro = rateLimit({
 
 // Rotas
 const usuariosRouter = require('./api/usuarios');
-app.use('/api/usuarios/login', limiteLogin);
-app.use('/api/usuarios/register', limiteCadastro);
-app.use('/api/usuarios/esqueci-senha', limiteCadastro);
-app.use('/api/usuarios/reenviar-confirmacao', limiteCadastro);
+// Os limitadores valem em producao e em desenvolvimento. Na suite de testes
+// todas as chamadas vem do mesmo IP, e o limite de 5 cadastros por hora
+// transformaria testes legitimos em falhas intermitentes.
+if (process.env.NODE_ENV !== 'test') {
+  app.use('/api/usuarios/login', limiteLogin);
+  app.use('/api/usuarios/register', limiteCadastro);
+  app.use('/api/usuarios/esqueci-senha', limiteCadastro);
+  app.use('/api/usuarios/reenviar-confirmacao', limiteCadastro);
+}
 app.use('/api/usuarios', usuariosRouter);
 
 const petsRouter = require('./api/pets');

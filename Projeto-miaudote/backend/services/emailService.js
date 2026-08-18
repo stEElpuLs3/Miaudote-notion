@@ -204,7 +204,9 @@ exports.enviarEmailConfirmacao = async (usuario, token) => {
       `
     };
     const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de confirmacao enviado');
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('✅ Email de confirmacao enviado');
+    }
     return result;
   } catch (error) {
     console.error('❌ Erro ao enviar email de confirmacao:', error.message);
