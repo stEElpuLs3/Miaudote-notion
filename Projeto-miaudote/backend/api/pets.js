@@ -214,22 +214,26 @@ router.put('/:id', auth, upload.array('images', 10), async (req, res) => {
       return res.status(403).json({ message: 'Acesso negado' });
     }
 
-    // Construir dados de atualização
-    const updateData = {
-      nome,
-      especie,
-      raca,
-      idade,
-      descricao,
-      endereco: {
-        cep: cep || '',
-        rua: rua || '',
-        numero: numero || '',
-        bairro: bairro || '',
-        cidade: cidade || '',
-        estado: estado || ''
-      }
-    };
+    // Construir dados de atualização.
+    // So entra no objeto o campo que veio na requisicao. Antes, o endereco
+    // era montado sempre com `|| ''`: quem editasse apenas o nome do pet
+    // apagava cep, rua, numero, bairro, cidade e estado ja gravados — e como
+    // o endereco alimenta o geocoding, o pet sumia da busca por proximidade.
+    const updateData = {};
+
+    if (nome !== undefined) updateData.nome = nome;
+    if (especie !== undefined) updateData.especie = especie;
+    if (raca !== undefined) updateData.raca = raca;
+    if (idade !== undefined) updateData.idade = idade;
+    if (descricao !== undefined) updateData.descricao = descricao;
+
+    // Notacao de ponto: mexe so no subcampo enviado, preservando os outros.
+    if (cep !== undefined) updateData['endereco.cep'] = cep;
+    if (rua !== undefined) updateData['endereco.rua'] = rua;
+    if (numero !== undefined) updateData['endereco.numero'] = numero;
+    if (bairro !== undefined) updateData['endereco.bairro'] = bairro;
+    if (cidade !== undefined) updateData['endereco.cidade'] = cidade;
+    if (estado !== undefined) updateData['endereco.estado'] = estado;
 
     // Processar novas imagens
     if (req.files && req.files.length > 0) {
@@ -241,7 +245,7 @@ router.put('/:id', auth, upload.array('images', 10), async (req, res) => {
     const updatedPet = await Pet.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
-      { new: true }
+      { new: true, runValidators: true }
     ).populate('user', 'nome email telefone');
 
     res.json({ 
@@ -250,8 +254,15 @@ router.put('/:id', auth, upload.array('images', 10), async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erro ao atualizar pet:', error);
-    res.status(500).json({ message: 'Erro ao atualizar pet', error });
+    console.error('Erro ao atualizar pet:', error.message);
+
+    // Dado invalido enviado pelo cliente e' 400, nao 500. Devolver 500 aqui
+    // esconderia falha real do servidor no meio do ruido de entrada ruim.
+    if (error.name === 'ValidationError' || error.name === 'CastError') {
+      return res.status(400).json({ message: 'Dados do pet invalidos' });
+    }
+
+    res.status(500).json({ message: 'Erro ao atualizar pet' });
   }
 });
 

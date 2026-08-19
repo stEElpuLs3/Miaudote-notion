@@ -205,3 +205,51 @@ describe('Permissao de dono nos pets', () => {
         expect(res.statusCode).toBe(401)
     })
 })
+
+describe('PUT /api/pets/:id — preservacao do endereco', () => {
+    it('editar somente o nome nao apaga o endereco gravado', async () => {
+        // Regressao: o updateData montava `endereco` inteiro com `|| ''`,
+        // entao uma edicao parcial zerava cep, rua, bairro, cidade e estado.
+        const dono = await criarUsuario('dono.endereco@exemplo.com')
+        const pet = await criarPet(dono.id)
+
+        const res = await request(app)
+            .put(`/api/pets/${pet._id}`)
+            .set('Authorization', `Bearer ${dono.token}`)
+            .send({ nome: 'Rex Renomeado' })
+
+        expect(res.statusCode).toBe(200)
+
+        // Le do banco com os campos protegidos por select: false.
+        const noBanco = await Pet.findById(pet._id).select(
+            '+endereco.rua +endereco.numero'
+        )
+
+        expect(noBanco.nome).toBe('Rex Renomeado')
+        expect(noBanco.endereco.cep).toBe('80020-030')
+        expect(noBanco.endereco.cidade).toBe('Curitiba')
+        expect(noBanco.endereco.estado).toBe('PR')
+        expect(noBanco.endereco.rua).toBe('Rua XV de Novembro')
+        expect(noBanco.endereco.numero).toBe('100')
+    })
+
+    it('nao aceita idade fora da faixa do schema', async () => {
+        // runValidators: true no findByIdAndUpdate. Sem ele, min/max e enum
+        // valem na criacao e sao ignorados no update.
+        const dono = await criarUsuario('dono.idade@exemplo.com')
+        const pet = await criarPet(dono.id)
+
+        const res = await request(app)
+            .put(`/api/pets/${pet._id}`)
+            .set('Authorization', `Bearer ${dono.token}`)
+            .send({ idade: 900 })
+
+        expect(res.statusCode).toBe(400)
+        // O corpo nao pode carregar a estrutura interna do schema.
+        expect(JSON.stringify(res.body)).not.toContain('ValidatorError')
+        expect(JSON.stringify(res.body)).not.toContain('idade')
+
+        const noBanco = await Pet.findById(pet._id)
+        expect(noBanco.idade).toBe(3)
+    })
+})
