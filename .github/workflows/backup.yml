@@ -1,0 +1,38 @@
+name: Backup do MongoDB
+
+on:
+  schedule:
+    # Domingos as 03:00 UTC (00:00 em Brasilia)
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+jobs:
+  dump:
+    name: Dump do Atlas
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Instalar mongodb-database-tools
+        run: |
+          set -e
+          wget -q https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.9.4.deb
+          sudo apt-get install -y ./mongodb-database-tools-ubuntu2204-x86_64-100.9.4.deb
+
+      - name: Gerar dump
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        run: |
+          set -e
+          if [ -z "$MONGODB_URI" ]; then
+            echo "::error::Secret MONGODB_URI nao configurado no repositorio."
+            exit 1
+          fi
+          mongodump --uri="$MONGODB_URI" --gzip --archive=miaudote-$(date +%Y-%m-%d).gz
+          ls -lh miaudote-*.gz
+
+      - name: Guardar como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-miaudote-${{ github.run_number }}
+          path: miaudote-*.gz
+          retention-days: 90
