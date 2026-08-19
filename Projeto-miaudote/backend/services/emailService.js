@@ -20,6 +20,12 @@ function lerDestinatarios(to) {
 
 const transporter = {
   async sendMail({ from, to, subject, html, text }) {
+    // Em teste nao chama a API do Brevo: endereco ficticio gera bounce,
+    // e bounce derruba a reputacao do remetente.
+    if (process.env.NODE_ENV === 'test') {
+      return { messageId: 'simulado-em-teste' };
+    }
+
     if (!process.env.BREVO_API_KEY) {
       throw new Error('BREVO_API_KEY nao definida');
     }
@@ -63,13 +69,15 @@ const transporter = {
 };
 
 // Verificar configuração
-transporter.verify((error) => {
-  if (error) {
-    console.error('❌ Erro na configuração do email:', error.message);
-  } else {
-    console.log('✅ Servidor de email pronto! (Brevo API)');
-  }
-});
+if (process.env.NODE_ENV !== 'test') {
+  transporter.verify((error) => {
+    if (error) {
+      console.error('❌ Erro na configuração do email:', error.message);
+    } else {
+      console.log('✅ Servidor de email pronto! (Brevo API)');
+    }
+  });
+}
 
 // Email de interesse em adoção
 exports.enviarEmailInteresse = async (donoPet, interessado, pet) => {
@@ -196,7 +204,9 @@ exports.enviarEmailConfirmacao = async (usuario, token) => {
       `
     };
     const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Email de confirmacao enviado');
+    if (process.env.NODE_ENV !== 'test') {
+      console.log('✅ Email de confirmacao enviado');
+    }
     return result;
   } catch (error) {
     console.error('❌ Erro ao enviar email de confirmacao:', error.message);

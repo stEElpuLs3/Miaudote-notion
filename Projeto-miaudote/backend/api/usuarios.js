@@ -1,17 +1,16 @@
+require('dotenv').config();
+
 const express = require('express');
-const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const upload = require('../middleware/upload');
 const storage = require('../services/storageService');
 const { auth, requireSelf, getSecret } = require('../middleware/auth');
-require('dotenv').config();
+const emailService = require('../services/emailService');
 
 const router = express.Router();
-
 const User = require('../models/User');
-const crypto = require('crypto');
-const emailService = require('../services/emailService');
 
 // Gera um codigo aleatorio em duas versoes: a crua vai no link do e-mail,
 // a embaralhada vai para o banco. Se o banco vazar, os codigos guardados
@@ -28,7 +27,7 @@ function embaralhar(token) {
 
 // Rota de cadastro
 router.post('/register', async (req, res) => {
-  const { nome, telefone, email, senha } = req.body;
+  const { nome, telefone, email, senha } = req.body || {};
 
   try {
     if (!email || !senha || senha.length < 6) {
@@ -63,33 +62,35 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ message: "Usuário criado com sucesso. Confira seu e-mail para confirmar a conta." });
   } catch (error) {
+    console.error('Erro ao criar usuario:', error.message);
     res.status(500).json({ message: "Erro ao criar usuário" });
   }
 });
 
 // Rota de login
 router.post('/login', async (req, res) => {
-  const { email, senha } = req.body;
+  const { email, senha } = req.body || {};
 
-  console.log('Tentativa de login:'); // ← Log para debug
+  // Mesma resposta para "conta inexistente" e "senha errada". Respostas
+  // diferentes permitiriam descobrir quais e-mails tem conta no Miaudote
+  // sem precisar de senha nenhuma (enumeracao de usuarios).
+  const credenciaisInvalidas = { message: 'E-mail ou senha incorretos' };
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      console.log('Usuário não encontrado:');
-      return res.status(404).json({ message: "Usuário não encontrado" });
+    if (!email || !senha) {
+      return res.status(400).json({ message: 'Informe e-mail e senha.' });
     }
 
-    console.log('Usuário encontrado, verificando senha...');
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json(credenciaisInvalidas);
+    }
 
     // Verifica senha
     const validPassword = await bcrypt.compare(senha, user.senha);
     if (!validPassword) {
-      console.log('Senha incorreta para:');
-      return res.status(401).json({ message: "Senha incorreta" });
+      return res.status(401).json(credenciaisInvalidas);
     }
-
-    console.log('Login bem-sucedido para:');
 
     // Geração do token
     const token = jwt.sign(
@@ -106,7 +107,7 @@ router.post('/login', async (req, res) => {
         nome: user.nome,
         email: user.email,
         telefone: user.telefone,
-        avatar: user.avatar, // ← ADICIONADO AQUI
+        avatar: user.avatar,
         redeSocial: user.redeSocial,
         endereco: user.endereco,
         sobre: user.sobre,
@@ -116,10 +117,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Erro no login:', error.message);
-    res.status(500).json({
-      message: "Erro no login",
-      error: error.message
-    });
+    res.status(500).json({ message: 'Erro no login' });
   }
 });
 
@@ -167,8 +165,7 @@ router.put('/:id/avatar', auth, requireSelf('id'), upload.single('avatar'), asyn
     console.error('Erro ao atualizar avatar:', error.message);
     res.status(500).json({
       success: false,
-      message: 'Erro ao atualizar avatar',
-      error: error.message
+      message: 'Erro ao atualizar avatar'
     });
   }
 });
@@ -189,29 +186,22 @@ router.put('/:id', auth, requireSelf('id'), upload.single('avatar'), async (req,
       enderecoEstado
     } = req.body;
 
-    const updateData = {
-      nome,
-      telefone,
-      sobre,
-      redeSocial: {
-        plataforma: redeSocialPlataforma || '',
-        usuario: redeSocialUsuario || ''
-      },
-      endereco: {
-        cep: enderecoCep || '',
-        rua: enderecoRua || '',
-        numero: enderecoNumero || '',
-        cidade: enderecoCidade || '',
-        estado: enderecoEstado || ''
-      }
-    };
+    const updateData = {};
 
-    // Remove campos undefined
-    Object.keys(updateData).forEach(key => {
-      if (updateData[key] === undefined) {
-        delete updateData[key];
-      }
-    });
+    if (nome !== undefined) updateData.nome = nome;
+    if (telefone !== undefined) updateData.telefone = telefone;
+    if (sobre !== undefined) updateData.sobre = sobre;
+
+    // Notacao de ponto: grava so o subcampo que veio na requisicao e preserva
+    // os demais. Montar os objetos `redeSocial` e `endereco` inteiros com
+    // `|| ''` apagava o que o cliente nao enviou.
+    if (redeSocialPlataforma !== undefined) updateData['redeSocial.plataforma'] = redeSocialPlataforma;
+    if (redeSocialUsuario !== undefined) updateData['redeSocial.usuario'] = redeSocialUsuario;
+    if (enderecoCep !== undefined) updateData['endereco.cep'] = enderecoCep;
+    if (enderecoRua !== undefined) updateData['endereco.rua'] = enderecoRua;
+    if (enderecoNumero !== undefined) updateData['endereco.numero'] = enderecoNumero;
+    if (enderecoCidade !== undefined) updateData['endereco.cidade'] = enderecoCidade;
+    if (enderecoEstado !== undefined) updateData['endereco.estado'] = enderecoEstado;
 
     // Se há nova imagem de avatar
     if (req.file) {
@@ -243,14 +233,14 @@ router.put('/:id', auth, requireSelf('id'), upload.single('avatar'), async (req,
     });
   } catch (error) {
     console.error('Erro ao atualizar usuário:', error.message);
-    res.status(500).json({ message: 'Erro ao atualizar perfil', error: error.message });
+    res.status(500).json({ message: 'Erro ao atualizar perfil' });
   }
 });
 
 // --- Confirmacao de e-mail ---
-
 router.post('/confirmar-email', async (req, res) => {
   const { token } = req.body || {};
+
   try {
     if (!token) return res.status(400).json({ message: 'Link invalido.' });
 
@@ -303,7 +293,6 @@ router.post('/reenviar-confirmacao', async (req, res) => {
 });
 
 // --- Recuperacao de senha ---
-
 router.post('/esqueci-senha', async (req, res) => {
   const { email } = req.body || {};
   const respostaPadrao = {
@@ -333,6 +322,7 @@ router.post('/esqueci-senha', async (req, res) => {
 
 router.post('/redefinir-senha', async (req, res) => {
   const { token, senha } = req.body || {};
+
   try {
     if (!token || !senha || senha.length < 6) {
       return res.status(400).json({ message: 'Informe uma senha com no minimo 6 caracteres.' });

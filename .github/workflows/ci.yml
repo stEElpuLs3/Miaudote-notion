@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/integracao-continua]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — testes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: Projeto-miaudote/backend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: Projeto-miaudote/backend
+        run: npm ci
+
+      - name: Rodar testes
+        working-directory: Projeto-miaudote/backend
+        run: npm run test:ci
+
+      - name: Auditoria de dependencias (SCA)
+        working-directory: Projeto-miaudote/backend
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  frontend:
+    name: Frontend — build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: Projeto-miaudote/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: Projeto-miaudote
+        run: npm ci
+
+      - name: Build com warnings tratados como erro
+        working-directory: Projeto-miaudote
+        env:
+          CI: true
+        run: npm run build
+
+      - name: Auditoria de dependencias (SCA)
+        working-directory: Projeto-miaudote
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  segredos:
+    name: Varredura de segredos
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Barrar arquivos sensiveis versionados
+        run: |
+          set -e
+          echo "Procurando .env e arquivos compactados no versionamento..."
+          if git ls-files | grep -E '(^|/)\.env($|\.)|\.zip$|\.pem$|\.p12$' | grep -vE '\.example$|\.sample$|\.template$'; then
+            echo "::error::Arquivo sensivel encontrado no repositorio. Remova do versionamento e rotacione o segredo."
+            exit 1
+          fi
+          echo "Nenhum arquivo sensivel versionado."

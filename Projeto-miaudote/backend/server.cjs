@@ -65,10 +65,15 @@ const limiteCadastro = rateLimit({
 
 // Rotas
 const usuariosRouter = require('./api/usuarios');
-app.use('/api/usuarios/login', limiteLogin);
-app.use('/api/usuarios/register', limiteCadastro);
-app.use('/api/usuarios/esqueci-senha', limiteCadastro);
-app.use('/api/usuarios/reenviar-confirmacao', limiteCadastro);
+// Os limitadores valem em producao e em desenvolvimento. Na suite de testes
+// todas as chamadas vem do mesmo IP, e o limite de 5 cadastros por hora
+// transformaria testes legitimos em falhas intermitentes.
+if (process.env.NODE_ENV !== 'test') {
+  app.use('/api/usuarios/login', limiteLogin);
+  app.use('/api/usuarios/register', limiteCadastro);
+  app.use('/api/usuarios/esqueci-senha', limiteCadastro);
+  app.use('/api/usuarios/reenviar-confirmacao', limiteCadastro);
+}
 app.use('/api/usuarios', usuariosRouter);
 
 const petsRouter = require('./api/pets');
@@ -102,14 +107,21 @@ app.use((error, req, res, next) => {
 });
 
 // Conexao com o MongoDB Atlas
-if (process.env.MONGODB_URI) {
+if (process.env.MONGODB_URI && process.env.NODE_ENV !== 'test') {
   mongoose
     .connect(process.env.MONGODB_URI)
-    .then(() => console.log('\u2705 Conectado ao MongoDB'))
-    .catch((err) => console.error('\u274c Erro ao conectar:', err.message));
+    .then(() => console.log('✅ Conectado ao MongoDB'))
+    .catch((err) => console.error('❌ Erro ao conectar:', err.message));
 }
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log('\ud83d\ude80 Servidor rodando na porta ' + PORT));
+
+// Só sobe a porta quando o arquivo é executado direto (node server.cjs),
+// nunca quando é importado por um teste.
+if (require.main === module) {
+  const PORT = process.env.PORT || 3001;
+  app.listen(PORT, () => console.log('🚀 Servidor rodando na porta ' + PORT));
+}
+
+module.exports = app;
 
 module.exports = app;
