@@ -83,7 +83,7 @@ jobs:
         run: |
           set -e
           echo "Procurando .env e arquivos compactados no versionamento..."
-          if git ls-files | grep -E '(^|/)\.env($|\.)|\.zip$|\.pem$|\.p12$'; then
+          if git ls-files | grep -E '(^|/)\.env($|\.)|\.zip$|\.pem$|\.p12$' | grep -vE '\.example$|\.sample$|\.template$'; then
             echo "::error::Arquivo sensivel encontrado no repositorio. Remova do versionamento e rotacione o segredo."
             exit 1
           fi
