@@ -1,38 +1,46 @@
-name: Backup do MongoDB
+name: Backup do banco
 
 on:
   schedule:
-    # Domingos as 03:00 UTC (00:00 em Brasilia)
-    - cron: '0 3 * * 0'
+    # Segunda-feira, 06:00 UTC = 03:00 em Brasilia
+    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 jobs:
-  dump:
-    name: Dump do Atlas
+  backup:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Instalar mongodb-database-tools
+      - name: Instalar MongoDB Database Tools
         run: |
-          set -e
           wget -q https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.9.4.deb
-          sudo apt-get install -y ./mongodb-database-tools-ubuntu2204-x86_64-100.9.4.deb
+          sudo dpkg -i mongodb-database-tools-*.deb
 
-      - name: Gerar dump
+      - name: Gerar o dump
         env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI_BACKUP }}
         run: |
-          set -e
-          if [ -z "$MONGODB_URI" ]; then
-            echo "::error::Secret MONGODB_URI nao configurado no repositorio."
+          mongodump --uri="$MONGODB_URI" --db=test --archive=backup.gz --gzip
+
+      - name: Conferir que o dump nao esta vazio
+        run: |
+          TAMANHO=$(stat -c%s backup.gz)
+          echo "Tamanho do dump: $TAMANHO bytes"
+          if [ "$TAMANHO" -lt 1024 ]; then
+            echo "Dump menor que 1 KB. Abortando."
             exit 1
           fi
-          mongodump --uri="$MONGODB_URI" --gzip --archive=miaudote-$(date +%Y-%m-%d).gz
-          ls -lh miaudote-*.gz
+
+      - name: Cifrar o dump
+        env:
+          SENHA: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+              --passphrase "$SENHA" -o backup.gz.gpg backup.gz
+          rm backup.gz
 
       - name: Guardar como artifact
         uses: actions/upload-artifact@v4
         with:
-          name: backup-miaudote-${{ github.run_number }}
-          path: miaudote-*.gz
+          name: backup-${{ github.run_number }}
+          path: backup.gz.gpg
           retention-days: 90
