@@ -34,7 +34,9 @@ const origensPermitidas = (process.env.CORS_ORIGINS || '')
 // Fora de producao aceitamos tambem os previews da Vercel e o localhost.
 // A regex exige o prefixo do projeto E o sufixo da conta: um dominio
 // qualquer-coisa.vercel.app registrado por terceiros nao passa.
-const permitirPreview = process.env.NODE_ENV !== 'production';
+const permitirPreviewVercel = process.env.PERMITIR_PREVIEW_CORS === 'true';
+const ehDesenvolvimentoLocal = process.env.NODE_ENV === 'development';
+
 const regexPreviewVercel =
   /^https:\/\/miaudote-notion-git-[a-z0-9-]+-vitor-pagottos-projects\.vercel\.app$/;
 const regexLocalhost = /^http:\/\/localhost(:\d+)?$/;
@@ -43,9 +45,9 @@ function origemPermitida(origin, callback) {
   // Requisicoes sem cabecalho Origin (curl, health check do cron-job) passam.
   if (!origin) return callback(null, true);
   if (origensPermitidas.includes(origin)) return callback(null, true);
-  if (permitirPreview && regexPreviewVercel.test(origin)) return callback(null, true);
-  if (permitirPreview && regexLocalhost.test(origin)) return callback(null, true);
-  return callback(new Error('Origem nao permitida pelo CORS'));
+  if (permitirPreviewVercel && regexPreviewVercel.test(origin)) return callback(null, true);
+  if (ehDesenvolvimentoLocal && regexLocalhost.test(origin)) return callback(null, true);
+  return callback(null, false);
 }
 
 app.use(cors({ origin: origemPermitida, credentials: true }));
